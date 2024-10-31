@@ -45,7 +45,7 @@ async function updateEtrProjections() {
 
     const result = await browser.scripting.executeScript({
       target: { tabId: etrTabId },
-      func: () => {
+      func: async () => {
         interface PlayerData {
           name: string;
           team: string;
@@ -125,7 +125,6 @@ async function updateEtrProjections() {
     });
 
     console.log('result!!');
-
     console.log({ result });
 
     if (!result?.[0]?.result) {
@@ -149,6 +148,7 @@ async function updateEtrProjections() {
 }
 
 // TODO: WIRE THIS UP TO SCRAPE THE PICK6 SLATES ON AN INTERVAL
+// TODO: THIS IS BROKEN FOR NBA SLATES
 async function scrapePick6Slates() {
   console.log('Adding Pick6 request listener...');
   const alreadyProcessed = new Set<string>();
@@ -158,7 +158,15 @@ async function scrapePick6Slates() {
     browser.webRequest.onCompleted.addListener(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       async (details: any) => {
-        if (details.url.includes('pick6.draftkings.com') && details.url.includes('_data=routes')) {
+        console.log('Details...');
+        console.log({ details });
+        if (
+          details.url.includes('pick6.draftkings.com') &&
+          details.url.includes('_data=routes') &&
+          details.url.includes('NBA')
+        ) {
+          console.log('Found an NBA request...');
+          console.log({ detailsUrl: details.url });
           try {
             if (!alreadyProcessed.has(details.url)) {
               // Fetch the response data
@@ -193,7 +201,11 @@ async function scrapePick6Slates() {
   }
 }
 
-async function getPlayableAmountBySlateAndPickLevel() {}
+async function getPlayableAmountBySlateAndPickLevel() {
+  console.log('Getting playable amount by slate and pick level...');
+  const currentData = await backgroundStorage.get();
+  console.log({ currentData });
+}
 
 async function simulateOnUnabated() {
   try {
@@ -598,19 +610,19 @@ async function simulateOnUnabated() {
 
 void updateBackgroundStorage();
 
-void updateEtrProjections();
+// void updateEtrProjections();
 
 void scrapePick6Slates();
 
-void simulateOnUnabated();
+// void simulateOnUnabated();
 
 const intervalId = setInterval(() => {
   void updateBackgroundStorage();
 }, 1000 * 20);
 
-const etrIntervalId = setInterval(() => {
-  void updateEtrProjections();
-}, 1000 * 60);
+// const etrIntervalId = setInterval(() => {
+//   void updateEtrProjections();
+// }, 1000 * 60);
 
 const dkIntervalId = setInterval(() => {
   console.log('TODO: NEED TO ADD PICK6 SCRAPING HERE');
@@ -620,15 +632,15 @@ const dkIntervalId = setInterval(() => {
   // TODO: CONSIDER PLACING ENTRIES IN DIFFERENT WAVES TO AVOID STALE LINES...
 }, 1000 * 30);
 
-const unabatedIntervalId = setInterval(() => {
-  void simulateOnUnabated();
-}, 1000 * 60);
+// const unabatedIntervalId = setInterval(() => {
+//   void simulateOnUnabated();
+// }, 1000 * 60);
 
 browser.runtime.onSuspend?.addListener(() => {
   clearInterval(intervalId);
-  clearInterval(etrIntervalId);
   clearInterval(dkIntervalId);
-  clearInterval(unabatedIntervalId);
+  // clearInterval(etrIntervalId);
+  // clearInterval(unabatedIntervalId);
 });
 
 browser.runtime.onMessage.addListener(
