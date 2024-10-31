@@ -9,6 +9,7 @@ export const backgroundStorage = {
       counter: data.counter || 0,
       lastUpdate: data.lastUpdate || Date.now(),
       etrProjections: data.etrProjections || [],
+      etrLastUpdated: data.etrLastUpdated || 'N/A',
       pickSixSlates: data.pickSixSlates || {},
     };
   },
@@ -19,6 +20,7 @@ export const backgroundStorage = {
     lastUpdate: number;
     etrProjections: Record<string, any>;
     pickSixSlates: Record<string, any>;
+    etrLastUpdated: string;
   }) {
     return browser.storage.local.set(data);
   },

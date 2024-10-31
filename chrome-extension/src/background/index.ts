@@ -23,7 +23,7 @@ async function updateBackgroundStorage() {
 }
 
 async function updateEtrProjections() {
-  console.log('updating etr projections!!');
+  console.log('Checking for ETR updates...');
   try {
     // Get the first tab in the first window
     // Query for any tab in the window, regardless of focus state
@@ -46,10 +46,6 @@ async function updateEtrProjections() {
     const result = await browser.scripting.executeScript({
       target: { tabId: etrTabId },
       func: () => {
-        // return;
-
-        console.log('parsing ETR...');
-
         interface PlayerData {
           name: string;
           team: string;
@@ -63,75 +59,88 @@ async function updateEtrProjections() {
         }
 
         function parseTable(tableElement: HTMLTableElement): PlayerData[] {
-          console.log('parsing table');
+          console.log('Parsing table');
           const players: PlayerData[] = [];
 
           // Get all rows from tbody
           const rows = tableElement.getElementsByTagName('tbody')[0]?.getElementsByTagName('tr');
+          console.log({ rows });
           if (!rows) return players;
 
           // @ts-expect-error
           for (const row of rows) {
             const cells = row.getElementsByTagName('td');
-            if (cells.length !== 9) continue; // Skip invalid rows
+            if (cells.length !== 12) continue; // Skip invalid rows - we expect 12 columns now
 
-            // Extract data from cells
+            // Extract data from cells based on the new table structure
             const player: PlayerData = {
               name: cells[0].textContent?.trim() || '',
-              team: cells[1].textContent?.trim() || '',
-              position: cells[2].textContent?.trim() || '',
+              position: cells[1].textContent?.trim() || '',
+              team: cells[2].textContent?.trim() || '',
               opponent: cells[3].textContent?.trim() || '',
-              salary: parseInt(cells[4].textContent?.trim() || '0'),
-              fdPoints: parseFloat(cells[5].textContent?.trim() || '0'),
-              fdValue: parseFloat(cells[6].textContent?.trim() || '0'),
-              fdOwnership: parseFloat(cells[7].textContent?.trim().replace('%', '') || '0'),
-              slate: cells[8].textContent?.trim() || '',
+              minutes: parseFloat(cells[4].textContent?.trim() || '0'),
+              points: parseFloat(cells[5].textContent?.trim() || '0'),
+              assists: parseFloat(cells[6].textContent?.trim() || '0'),
+              rebounds: parseFloat(cells[7].textContent?.trim() || '0'),
+              threePt: parseFloat(cells[8].textContent?.trim() || '0'),
+              turnovers: parseFloat(cells[9].textContent?.trim() || '0'),
+              steals: parseFloat(cells[10].textContent?.trim() || '0'),
+              blocks: parseFloat(cells[11].textContent?.trim() || '0'),
             };
 
             players.push(player);
           }
 
+          console.log({ players });
+
           return players;
         }
 
+        const lastUpdatedTable = document.querySelector('table[aria-label="Last Updated - NBA Projections Detail"]');
+        if (lastUpdatedTable === null) {
+          return;
+        }
+
+        const lastUpdated = lastUpdatedTable?.querySelectorAll('td')[1].innerHTML;
+        console.log('Last updated: ', lastUpdated);
+
+        const currentData = await backgroundStorage.get();
+        console.log({ currentData });
+
+        if (lastUpdated === currentData.etrLastUpdated) {
+          console.log('ETR still fresh!');
+          return;
+        }
+
         const table = document.querySelectorAll('table')[1];
-        console.log('Table! ', table);
         if (!table) {
           console.error('No table found on page');
           return null;
         }
 
         const tableData = parseTable(table);
-        console.log({ tableData });
-
-        const data = [];
-        const rows = table.querySelectorAll('tr');
-
-        // @ts-expect-error
-        for (const row of rows) {
-          const rowData = [];
-          const cells = row.querySelectorAll('td, th');
-          for (const cell of cells) {
-            rowData.push(cell.textContent.trim());
-          }
-          data.push(rowData);
-        }
-
-        return data;
+        console.log({ tableData, lastUpdated });
+        return [tableData, lastUpdated];
       },
     });
+
+    console.log('result!!');
+
+    console.log({ result });
 
     if (!result?.[0]?.result) {
       console.error('No table found on page');
       return;
     }
 
-    const tableData = result[0].result;
+    const [tableData, lastUpdated] = result[0].result;
+    console.log({ tableData, lastUpdated });
 
     // Store the scraped data
     const currentData = await backgroundStorage.get();
     await backgroundStorage.set({
       ...currentData,
+      etrLastUpdated: lastUpdated,
       etrProjections: tableData,
     });
   } catch (error) {
@@ -589,7 +598,7 @@ async function simulateOnUnabated() {
 
 void updateBackgroundStorage();
 
-// void updateEtrProjections();
+void updateEtrProjections();
 
 void scrapePick6Slates();
 
@@ -599,9 +608,9 @@ const intervalId = setInterval(() => {
   void updateBackgroundStorage();
 }, 1000 * 20);
 
-// const etrIntervalId = setInterval(() => {
-//   void updateEtrProjections();
-// }, 1000 * 60);
+const etrIntervalId = setInterval(() => {
+  void updateEtrProjections();
+}, 1000 * 60);
 
 const dkIntervalId = setInterval(() => {
   console.log('TODO: NEED TO ADD PICK6 SCRAPING HERE');
@@ -617,7 +626,7 @@ const unabatedIntervalId = setInterval(() => {
 
 browser.runtime.onSuspend?.addListener(() => {
   clearInterval(intervalId);
-  //clearInterval(etrIntervalId);
+  clearInterval(etrIntervalId);
   clearInterval(dkIntervalId);
   clearInterval(unabatedIntervalId);
 });
