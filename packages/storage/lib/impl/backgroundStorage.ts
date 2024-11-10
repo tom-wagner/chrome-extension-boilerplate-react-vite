@@ -11,17 +11,19 @@ type BackgroundData = {
   pickSixSlates: any;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   etrLastUpdated: any;
+  pickGroupIdToTarget: string;
 };
 
-const BASE_DATA: BackgroundData = {
+export const BASE_DATA: BackgroundData = {
   lastUpdate: Date.now(),
   counter: 0,
   etrProjections: [],
   etrLastUpdated: 'N/A',
   pickSixSlates: {},
+  pickGroupIdToTarget: '',
 };
 
-const storage = createStorage<BackgroundData>('background-storage-key', BASE_DATA, {
+const storage = createStorage<BackgroundData>('PICK6_STORAGE', BASE_DATA, {
   storageEnum: StorageEnum.Local,
   liveUpdate: true,
 });

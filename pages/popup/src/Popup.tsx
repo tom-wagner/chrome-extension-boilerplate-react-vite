@@ -3,12 +3,12 @@ import { useStorage, withErrorBoundary, withSuspense } from '@extension/shared';
 import { backgroundStorage, exampleThemeStorage } from '@extension/storage';
 import type { ComponentPropsWithoutRef } from 'react';
 
-const notificationOptions = {
-  type: 'basic',
-  iconUrl: chrome.runtime.getURL('icon-34.png'),
-  title: 'Injecting content script error',
-  message: 'You cannot inject script here!',
-} as const;
+// const notificationOptions = {
+//   type: 'basic',
+//   iconUrl: chrome.runtime.getURL('icon-34.png'),
+//   title: 'Injecting content script error',
+//   message: 'You cannot inject script here!',
+// } as const;
 
 const Popup = () => {
   const theme = useStorage(exampleThemeStorage);
@@ -35,7 +35,7 @@ const Popup = () => {
   //     });
   // };
 
-  const { pickSixSlates } = useStorage(backgroundStorage);
+  const { pickSixSlates, pickGroupIdToTarget } = useStorage(backgroundStorage);
 
   return (
     <div className={`App ${isLight ? 'bg-slate-50' : 'bg-gray-800'}`}>
@@ -53,9 +53,42 @@ const Popup = () => {
           <p>{JSON.stringify(pickSixSlates)}</p>
         </div>
         <div>
-          <button onClick={() => backgroundStorage.clear()}>Clear local storage</button>
+          <button style={{ marginTop: '10px', border: '1px solid red' }} onClick={() => backgroundStorage.clear()}>
+            Clear local storage
+          </button>
         </div>
-        <button>Refresh window.__remixContext</button>
+        <button style={{ marginTop: '10px', border: '1px solid red' }}>
+          Refresh window.__remixContext (not currently wired up)
+        </button>
+        <div className="mt-4 flex items-center gap-2">
+          <label htmlFor="slateTarget" className="text-black">
+            Slate to Target:
+          </label>
+          <input
+            id="slateTarget"
+            type="text"
+            className="rounded border px-2 py-1 text-black"
+            value={pickGroupIdToTarget ?? ''}
+            onChange={async e => {
+              await backgroundStorage.set(prev => ({
+                ...prev,
+                pickGroupIdToTarget: e.target.value,
+              }));
+            }}
+          />
+        </div>
+        <button
+          style={{
+            marginTop: '10px',
+            border: '1px solid blue',
+            padding: '4px 8px',
+            borderRadius: '4px',
+          }}
+          onClick={() => {
+            chrome.runtime.sendMessage({ type: 'RUN_COMPARATOR' });
+          }}>
+          Run Comparator
+        </button>
         <ToggleButton>Toggle theme</ToggleButton>
       </header>
     </div>
