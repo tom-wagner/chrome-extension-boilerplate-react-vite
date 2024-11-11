@@ -89,6 +89,18 @@ const Popup = () => {
           }}>
           Run Comparator
         </button>
+        <button
+          style={{
+            marginTop: '10px',
+            border: '1px solid blue',
+            padding: '4px 8px',
+            borderRadius: '4px',
+          }}
+          onClick={() => {
+            chrome.runtime.sendMessage({ type: 'GET_LIVE_STATS' });
+          }}>
+          Get Live Stats
+        </button>
         <ToggleButton>Toggle theme</ToggleButton>
       </header>
     </div>
