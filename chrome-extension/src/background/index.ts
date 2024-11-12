@@ -4,7 +4,8 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 import browser from 'webextension-polyfill';
 import { backgroundStorage } from '@extension/storage';
-
+import { scrapeAllCategoriesNBA } from './NBA';
+import { scrapeAllCategoriesNFL } from './NFL';
 function determineResult(targetValue, abbreviation, boxScore) {
   const OVER = 'OVER';
   const UNDER = 'UNDER';
@@ -68205,6 +68206,8 @@ async function comparator() {
 // }
 
 async function getLiveStats() {
+  scrapeAllCategoriesNBA();
+  scrapeAllCategoriesNFL();
   const tabs = await browser.tabs.query({
     url: '*://*.rapidapi.com/*',
   });
