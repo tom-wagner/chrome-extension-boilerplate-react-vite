@@ -8,6 +8,8 @@ On SportsbookAg, the structure is a little less clean. There are headings that s
 
 Instructions:
 1. The output of both should be an object keyed by player name with all the various stats:
+2. For this code create a new file with three functions in it, one function per site, and also add three buttons to the extension popup, one per site. For now we will just be scraping from the HTML file in the repo but eventually we will substitute in the actual website
+3. You can open the HTML files in your browser using the absolute path. And don't use any libraries, just vanilla Javascript. I think document.querySelectorAll() with some mapping will work well
 
 Establish The Run Full ProjectionDetail example (real example from the html file):
 ```
