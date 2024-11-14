@@ -101,6 +101,19 @@ const Popup = () => {
           }}>
           Get Live Stats
         </button>
+
+        <button
+          style={{
+            marginTop: '10px',
+            border: '1px solid blue',
+            padding: '4px 8px',
+            borderRadius: '4px',
+          }}
+          onClick={() => {
+            chrome.runtime.sendMessage({ type: 'SCRAPER_NBA_COM' });
+          }}>
+          Scraper NBA.com
+        </button>
         <ToggleButton>Toggle theme</ToggleButton>
       </header>
     </div>

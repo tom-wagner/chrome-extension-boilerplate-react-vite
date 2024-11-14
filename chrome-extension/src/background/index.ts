@@ -68204,6 +68204,63 @@ async function comparator() {
 //   const currentData = await backgroundStorage.get();
 //   console.log({ currentData });
 // }
+const fetchNBAStats = async url => {
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        Accept: '*/*',
+        'Accept-Encoding': 'gzip, deflate, br, zstd',
+        'Accept-Language': 'en,vi;q=0.9,en-US;q=0.8',
+        Origin: 'https://www.nba.com',
+        Referer: 'https://www.nba.com/',
+        'Sec-CH-UA': `"Chromium";v="130", "Google Chrome";v="130", "Not?A_Brand";v="99"`,
+        'Sec-CH-UA-Mobile': '?0',
+        'Sec-CH-UA-Platform': `"Windows"`,
+        'Sec-Fetch-Dest': 'empty',
+        'Sec-Fetch-Mode': 'cors',
+        'Sec-Fetch-Site': 'same-site',
+        'User-Agent':
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! Status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const headers = data['resultSets'][0]['headers'];
+    const rowSet = data['resultSets'][0]['rowSet'];
+    const jsonData = {};
+
+    for (const teamData of rowSet) {
+      const teamName = teamData[1];
+      jsonData[teamName] = Object.fromEntries(headers.map((key, index) => [key, teamData[index]]));
+    }
+    console.log(jsonData);
+  } catch (error) {
+    console.error('Error fetching data:', error);
+  }
+};
+async function scraperNBA() {
+  // Teams Opponent
+  fetchNBAStats(
+    `https://stats.nba.com/stats/leaguedashteamstats?Conference=&DateFrom=&DateTo=&Division=&GameScope=&GameSegment=&Height=&ISTRound=&LastNGames=0&LeagueID=00&Location=&MeasureType=Opponent&Month=0&OpponentTeamID=0&Outcome=&PORound=0&PaceAdjust=N&PerMode=Per100Possessions&Period=0&PlayerExperience=&PlayerPosition=&PlusMinus=N&Rank=N&Season=2024-25&SeasonSegment=&SeasonType=Regular%20Season&ShotClockRange=&StarterBench=&TeamID=0&TwoWay=0&VsConference=&VsDivision=`,
+  );
+  //Players Advanced
+  fetchNBAStats(
+    `https://stats.nba.com/stats/leaguedashplayerstats?College=&Conference=&Country=&DateFrom=&DateTo=&Division=&DraftPick=&DraftYear=&GameScope=&GameSegment=&Height=&ISTRound=&LastNGames=0&LeagueID=00&Location=&MeasureType=Advanced&Month=0&OpponentTeamID=0&Outcome=&PORound=0&PaceAdjust=N&PerMode=Per100Possessions&Period=0&PlayerExperience=&PlayerPosition=&PlusMinus=N&Rank=N&Season=2024-25&SeasonSegment=&SeasonType=Regular%20Season&ShotClockRange=&StarterBench=&TeamID=0&VsConference=&VsDivision=&Weight=`,
+  );
+  // Teams Advanced
+  fetchNBAStats(
+    `https://stats.nba.com/stats/leaguedashteamstats?Conference=&DateFrom=&DateTo=&Division=&GameScope=&GameSegment=&Height=&ISTRound=&LastNGames=0&LeagueID=00&Location=&MeasureType=Advanced&Month=0&OpponentTeamID=0&Outcome=&PORound=0&PaceAdjust=N&PerMode=PerGame&Period=0&PlayerExperience=&PlayerPosition=&PlusMinus=N&Rank=N&Season=2024-25&SeasonSegment=&SeasonType=Regular%20Season&ShotClockRange=&StarterBench=&TeamID=0&TwoWay=0&VsConference=&VsDivision=`,
+  );
+  //Players Usage
+  fetchNBAStats(
+    `https://stats.nba.com/stats/leaguedashplayerstats?College=&Conference=&Country=&DateFrom=&DateTo=&Division=&DraftPick=&DraftYear=&GameScope=&GameSegment=&Height=&ISTRound=&LastNGames=0&LeagueID=00&Location=&MeasureType=Usage&Month=0&OpponentTeamID=0&Outcome=&PORound=0&PaceAdjust=N&PerMode=PerGame&Period=0&PlayerExperience=&PlayerPosition=&PlusMinus=N&Rank=N&Season=2024-25&SeasonSegment=&SeasonType=Regular%20Season&ShotClockRange=&StarterBench=&TeamID=0&VsConference=&VsDivision=&Weight=`,
+  );
+}
 
 async function getLiveStats() {
   scrapeAllCategoriesNBA();
@@ -68669,6 +68726,8 @@ void simulateOnUnabated();
 
 void getLiveStats();
 
+void scraperNBA();
+
 void comparator();
 
 const intervalId = setInterval(() => {
@@ -68727,11 +68786,16 @@ browser.runtime.onMessage.addListener(async (message: { type: string }) => {
     void comparator();
   }
 });
-
+SCRAPER_NBA_COM;
 browser.runtime.onMessage.addListener(async (message: { type: string }) => {
   if (message.type === 'GET_LIVE_STATS') {
     void getLiveStats();
   }
 });
 
+browser.runtime.onMessage.addListener(async (message: { type: string }) => {
+  if (message.type === 'SCRAPER_NBA_COM') {
+    void scraperNBA();
+  }
+});
 console.log('background loaded');
