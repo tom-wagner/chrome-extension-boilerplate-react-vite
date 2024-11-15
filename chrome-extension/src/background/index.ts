@@ -68402,6 +68402,181 @@ async function getLiveStats() {
   }
 }
 
+async function getSportbookAG() {
+  const tabs = await browser.tabs.query({
+    url: 'file:///C:/chrome-extension-boilerplate-react-vite/chrome-extension/src/HTML/SportsbookAgResponse.html',
+  });
+  for (const tab of tabs) {
+    if (tab.id) {
+      const result = await browser.scripting.executeScript({
+        target: { tabId: tab.id },
+        func: async () => {
+          const statsObject = {};
+
+          const extractPlayerStats = (eventBoxes, statType) => {
+            eventBoxes.forEach(eventBox => {
+              const playerName = eventBox.querySelector('.eventheading div')?.innerText.split(' - ')[0].trim();
+
+              if (playerName) {
+                if (!statsObject[playerName]) {
+                  statsObject[playerName] = {};
+                }
+
+                const statRows = eventBox.querySelectorAll('.eventrow .row');
+                let foundStat = false;
+
+                statRows.forEach(row => {
+                  const marketDiv = row.querySelector('.market');
+
+                  if (marketDiv) {
+                    let [statValue, odds] = marketDiv.innerText.split('\n').map(item => item.trim());
+                    let statName = '';
+
+                    if (statValue.includes('O')) statName = 'OVER';
+                    if (statValue.includes('U')) statName = 'UNDER';
+
+                    const OU = statValue.replace('O', '').replace('U', '');
+
+                    if (!statsObject[playerName][statType]) {
+                      statsObject[playerName][statType] = {};
+                    }
+
+                    statsObject[playerName][statType] = {
+                      ...statsObject[playerName][statType],
+                      [statName]: odds.replace('(', '').replace(')', ''),
+                      '0U': OU,
+                    };
+
+                    foundStat = true;
+                  }
+                });
+
+                if (!foundStat) {
+                  statsObject[playerName][statType] = {
+                    'O/U': 'N/A',
+                    OVER: 'N/A',
+                    UNDER: 'N/A',
+                  };
+                }
+              }
+            });
+          };
+
+          const pointEventBoxes = document.querySelector('.panel-body').querySelectorAll('.eventbox');
+          const reboundEventBoxes = document.querySelectorAll('.panel-body')[2].querySelectorAll('.eventbox');
+
+          extractPlayerStats(pointEventBoxes, 'Points');
+          extractPlayerStats(reboundEventBoxes, 'Rebounds');
+
+          return statsObject;
+        },
+      });
+
+      console.log(result);
+    }
+  }
+}
+
+async function getFullDFS() {
+  const tabs = await browser.tabs.query({
+    url: 'file:///C:/chrome-extension-boilerplate-react-vite/chrome-extension/src/HTML/establishTheRunDfsProjections.html',
+  });
+  for (const tab of tabs) {
+    if (tab.id) {
+      const result = await browser.scripting.executeScript({
+        target: { tabId: tab.id },
+        func: async () => {
+          const table = document.getElementById('table_1');
+
+          const players = {};
+
+          Array.from(table.querySelectorAll('tbody tr')).forEach(row => {
+            const cells = row.querySelectorAll('td');
+
+            const playerName = cells[0].textContent.trim();
+            const fdName = cells[1].textContent.trim();
+            const team = cells[2].textContent.trim();
+            const opponent = cells[3].textContent.trim();
+            const minutes = parseFloat(cells[4].textContent);
+            const position = cells[5].textContent.trim();
+            const salary = parseInt(cells[6].textContent.replace(/,/g, ''));
+            const points = parseFloat(cells[7].textContent);
+            const value = parseFloat(cells[8].textContent);
+            const ceiling = parseFloat(cells[9].textContent);
+            const ownership = parseFloat(cells[10].textContent);
+            const slate = cells[11].textContent.trim();
+
+            players[playerName] = {
+              fdName,
+              team,
+              opponent,
+              minutes,
+              position,
+              salary,
+              points,
+              value,
+              ceiling,
+              ownership,
+              slate,
+            };
+          });
+
+          console.log(players);
+          return players;
+        },
+      });
+
+      console.log(result);
+    }
+  }
+}
+
+async function getFullDetail() {
+  const tabs = await browser.tabs.query({
+    url: 'file:///C:/chrome-extension-boilerplate-react-vite/chrome-extension/src/HTML/establishTheRunFullProjectionDetail.html',
+  });
+  for (const tab of tabs) {
+    if (tab.id) {
+      const result = await browser.scripting.executeScript({
+        target: { tabId: tab.id },
+        func: async () => {
+          const table = document.getElementById('footable_743261');
+
+          const players = {};
+
+          Array.from(table.querySelectorAll('tbody tr')).forEach(row => {
+            const cells = row.querySelectorAll('td');
+
+            const playerName = cells[0].textContent.trim(); // Player name
+            // const position = cells[1].textContent.trim();          // Position
+            const team = cells[2].textContent.trim(); // Team
+            const oop = cells[3].textContent.trim(); // Opponent
+            const minutes = parseFloat(cells[4].textContent); // Minutes
+            // const points = parseFloat(cells[5].textContent);       // Points
+            // const assists = parseFloat(cells[6].textContent);      // Assists
+            // const rebounds = parseFloat(cells[7].textContent);     // Rebounds
+            // const threePt = parseFloat(cells[8].textContent);      // ThreePt
+            // const turnovers = parseFloat(cells[9].textContent);    // Turnovers
+            // const steals = parseFloat(cells[10].textContent);      // Steals
+            // const blocks = parseFloat(cells[11].textContent);      // Blocks
+
+            players[playerName] = {
+              team,
+              oop,
+              minutes,
+            };
+          });
+
+          console.log(players);
+          return players;
+        },
+      });
+
+      console.log(result);
+    }
+  }
+}
+
 async function simulateOnUnabated() {
   try {
     // Query for any tabs on unabated.com
@@ -68731,6 +68906,12 @@ void scraperNBA();
 
 void comparator();
 
+void getFullDetail();
+
+void getFullDFS();
+
+void getSportbookAG();
+
 const intervalId = setInterval(() => {
   void updateBackgroundStorage();
 }, 1000 * 20);
@@ -68787,10 +68968,27 @@ browser.runtime.onMessage.addListener(async (message: { type: string }) => {
     void comparator();
   }
 });
-SCRAPER_NBA_COM;
 browser.runtime.onMessage.addListener(async (message: { type: string }) => {
   if (message.type === 'GET_LIVE_STATS') {
     void getLiveStats();
+  }
+});
+
+browser.runtime.onMessage.addListener(async (message: { type: string }) => {
+  if (message.type === 'GET_FULL_DETAIL') {
+    void getFullDetail();
+  }
+});
+
+browser.runtime.onMessage.addListener(async (message: { type: string }) => {
+  if (message.type === 'GET_FULL_DFS') {
+    void getFullDFS();
+  }
+});
+
+browser.runtime.onMessage.addListener(async (message: { type: string }) => {
+  if (message.type === 'GET_SPORTSBOOKAG') {
+    void getSportbookAG();
   }
 });
 

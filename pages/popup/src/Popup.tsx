@@ -110,6 +110,46 @@ const Popup = () => {
             borderRadius: '4px',
           }}
           onClick={() => {
+            console.log('GET_FULL_DETAIL');
+            chrome.runtime.sendMessage({ type: 'GET_FULL_DETAIL' });
+          }}>
+          Get Establish The Run Full ProjectionDetail
+        </button>
+
+        <button
+          style={{
+            marginTop: '10px',
+            border: '1px solid blue',
+            padding: '4px 8px',
+            borderRadius: '4px',
+          }}
+          onClick={() => {
+            chrome.runtime.sendMessage({ type: 'GET_FULL_DFS' });
+          }}>
+          Get Establish The Run Full DFS
+        </button>
+
+        <button
+          style={{
+            marginTop: '10px',
+            border: '1px solid blue',
+            padding: '4px 8px',
+            borderRadius: '4px',
+          }}
+          onClick={() => {
+            chrome.runtime.sendMessage({ type: 'GET_SPORTSBOOKAG' });
+          }}>
+          Get SportsbookAg
+        </button>
+
+        <button
+          style={{
+            marginTop: '10px',
+            border: '1px solid blue',
+            padding: '4px 8px',
+            borderRadius: '4px',
+          }}
+          onClick={() => {
             chrome.runtime.sendMessage({ type: 'SCRAPER_NBA_COM' });
           }}>
           Scraper NBA.com
