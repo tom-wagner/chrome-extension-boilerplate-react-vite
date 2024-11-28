@@ -113,7 +113,7 @@ const Popup = () => {
             console.log('GET_FULL_DETAIL');
             chrome.runtime.sendMessage({ type: 'GET_FULL_DETAIL' });
           }}>
-          Get Establish The Run Full ProjectionDetail
+          Get Establish The Run Full Projection Detail
         </button>
 
         <button

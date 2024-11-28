@@ -6,6 +6,7 @@ import browser from 'webextension-polyfill';
 import { backgroundStorage } from '@extension/storage';
 import { scrapeAllCategoriesNBA } from './NBA';
 import { scrapeAllCategoriesNFL } from './NFL';
+
 function determineResult(targetValue, abbreviation, boxScore) {
   const OVER = 'OVER';
   const UNDER = 'UNDER';
@@ -189,7 +190,8 @@ async function updateEtrProjections() {
   console.log('Checking for ETR updates...');
   try {
     const tabs = await browser.tabs.query({
-      url: '*://*.establishtherun.com/*',
+      // TODO:
+      url: '*establishTheRunFullProjectionDetail.html',
     });
 
     for (const tab of tabs) {
@@ -68205,46 +68207,51 @@ async function comparator() {
 //   const currentData = await backgroundStorage.get();
 //   console.log({ currentData });
 // }
+
 const fetchNBAStats = async url => {
   try {
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        Accept: '*/*',
-        'Accept-Encoding': 'gzip, deflate, br, zstd',
-        'Accept-Language': 'en,vi;q=0.9,en-US;q=0.8',
-        Origin: 'https://www.nba.com',
-        Referer: 'https://www.nba.com/',
-        'Sec-CH-UA': `"Chromium";v="130", "Google Chrome";v="130", "Not?A_Brand";v="99"`,
-        'Sec-CH-UA-Mobile': '?0',
-        'Sec-CH-UA-Platform': `"Windows"`,
-        'Sec-Fetch-Dest': 'empty',
-        'Sec-Fetch-Mode': 'cors',
-        'Sec-Fetch-Site': 'same-site',
-        'User-Agent':
-          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36',
-      },
+    // Find an NBA.com tab to execute in
+    const tabs = await browser.tabs.query({
+      url: '*://*.nba.com/*'
     });
 
-    if (!response.ok) {
-      throw new Error(`HTTP error! Status: ${response.status}`);
+    if (tabs.length === 0) {
+      throw new Error('No NBA.com tab found. Please open NBA.com first.');
     }
 
-    const data = await response.json();
-    const headers = data['resultSets'][0]['headers'];
-    const rowSet = data['resultSets'][0]['rowSet'];
-    const jsonData = {};
+    // Execute the fetch in the NBA.com tab context
+    const result = await browser.scripting.executeScript({
+      target: { tabId: tabs[0].id },
+      func: async (url) => {
+        const response = await fetch(url);
+        if (!response.ok) {
+          throw new Error(`HTTP error! Status: ${response.status}`);
+        }
 
-    for (const teamData of rowSet) {
-      const teamName = teamData[1];
-      jsonData[teamName] = Object.fromEntries(headers.map((key, index) => [key, teamData[index]]));
-    }
-    console.log(jsonData);
+        const data = await response.json();
+        const headers = data['resultSets'][0]['headers'];
+        const rowSet = data['resultSets'][0]['rowSet'];
+        const jsonData = {};
+
+        for (const teamData of rowSet) {
+          const teamName = teamData[1];
+          jsonData[teamName] = Object.fromEntries(headers.map((key, index) => [key, teamData[index]]));
+        }
+        return jsonData;
+      },
+      args: [url]
+    });
+
+    console.log(result[0].result);
   } catch (error) {
     console.error('Error fetching data:', error);
   }
 };
+
+// Tab needs to be open:
+// https://www.nba.com/stats/players/traditional?PerMode=Totals&sort=PTS&dir=-1
 async function scraperNBA() {
+  console.log('Scraping NBA stats...');
   // Teams Opponent
   fetchNBAStats(
     `https://stats.nba.com/stats/leaguedashteamstats?Conference=&DateFrom=&DateTo=&Division=&GameScope=&GameSegment=&Height=&ISTRound=&LastNGames=0&LeagueID=00&Location=&MeasureType=Opponent&Month=0&OpponentTeamID=0&Outcome=&PORound=0&PaceAdjust=N&PerMode=Per100Possessions&Period=0&PlayerExperience=&PlayerPosition=&PlusMinus=N&Rank=N&Season=2024-25&SeasonSegment=&SeasonType=Regular%20Season&ShotClockRange=&StarterBench=&TeamID=0&TwoWay=0&VsConference=&VsDivision=`,
@@ -68534,9 +68541,14 @@ async function getFullDFS() {
 }
 
 async function getFullDetail() {
+  console.log("Getting full detail...")
   const tabs = await browser.tabs.query({
-    url: 'file:///C:/chrome-extension-boilerplate-react-vite/chrome-extension/src/HTML/establishTheRunFullProjectionDetail.html',
+    url: [
+      'file:///*establishTheRunFullProjectionDetail.html',
+      '*://*/*establishTheRunFullProjectionDetail.html'
+    ]
   });
+
   for (const tab of tabs) {
     if (tab.id) {
       const result = await browser.scripting.executeScript({
@@ -68574,7 +68586,7 @@ async function getFullDetail() {
         },
       });
 
-      console.log(result);
+      return result;
     }
   }
 }
@@ -68896,58 +68908,58 @@ async function simulateOnUnabated() {
 
 void updateBackgroundStorage();
 
-void updateEtrProjections();
+// void updateEtrProjections();
 
-void scrapePick6Slates();
+// void scrapePick6Slates();
 
-void simulateOnUnabated();
+// void simulateOnUnabated();
 
-void getLiveStats();
+// void getLiveStats();
 
-void scraperNBA();
+// void scraperNBA();
 
-void comparator();
+// void comparator();
 
-void getFullDetail();
+// void getFullDetail();
 
-void getFullDFS();
+// void getFullDFS();
 
-void getSportbookAG();
+// void getSportbookAG();
 
-const intervalId = setInterval(() => {
-  void updateBackgroundStorage();
-}, 1000 * 20);
+// const intervalId = setInterval(() => {
+//   void updateBackgroundStorage();
+// }, 1000 * 20);
 
-const etrIntervalId = setInterval(() => {
-  void updateEtrProjections();
-}, 1000 * 60);
+// const etrIntervalId = setInterval(() => {
+//   void updateEtrProjections();
+// }, 1000 * 60);
 
-const dkIntervalId = setInterval(() => {
-  console.log('TODO: NEED TO ADD PICK6 SCRAPING HERE');
+// const dkIntervalId = setInterval(() => {
+//   console.log('TODO: NEED TO ADD PICK6 SCRAPING HERE');
 
-  // OR CONSIDER ADDING A BUTTON TO SCRAPE ALL IDENTIFIED SLATES, SIMULATE TO UNABATED, THEN PLACE ENTRIES
+//   // OR CONSIDER ADDING A BUTTON TO SCRAPE ALL IDENTIFIED SLATES, SIMULATE TO UNABATED, THEN PLACE ENTRIES
 
-  // TODO: CONSIDER PLACING ENTRIES IN DIFFERENT WAVES TO AVOID STALE LINES...
-}, 1000 * 30);
+//   // TODO: CONSIDER PLACING ENTRIES IN DIFFERENT WAVES TO AVOID STALE LINES...
+// }, 1000 * 30);
 
-const unabatedIntervalId = setInterval(() => {
-  void simulateOnUnabated();
-}, 1000 * 60);
+// const unabatedIntervalId = setInterval(() => {
+//   void simulateOnUnabated();
+// }, 1000 * 60);
 
-const liveStatsIntervalId = setInterval(
-  () => {
-    void getLiveStats();
-    // TODO: REDUCE THIS
-  },
-  1000 * 60 * 60,
-);
+// const liveStatsIntervalId = setInterval(
+//   () => {
+//     void getLiveStats();
+//     // TODO: REDUCE THIS
+//   },
+//   1000 * 60 * 60,
+// );
 
 browser.runtime.onSuspend?.addListener(() => {
-  clearInterval(intervalId);
-  clearInterval(dkIntervalId);
-  clearInterval(liveStatsIntervalId);
-  clearInterval(etrIntervalId);
-  clearInterval(unabatedIntervalId);
+  // clearInterval(intervalId);
+  // clearInterval(dkIntervalId);
+  // clearInterval(liveStatsIntervalId);
+  // clearInterval(etrIntervalId);
+  // clearInterval(unabatedIntervalId);
 });
 
 browser.runtime.onMessage.addListener(
@@ -68978,7 +68990,13 @@ browser.runtime.onMessage.addListener(async (message: { type: string }) => {
 
 browser.runtime.onMessage.addListener(async (message: { type: string }) => {
   if (message.type === 'GET_FULL_DETAIL') {
-    void getFullDetail();
+    const minutesProjections = await getFullDetail();
+    const currentData = await backgroundStorage.get();
+    await backgroundStorage.set({
+      ...currentData,
+      minutesProjections
+    });
+    console.log({ minutesProjections });
   }
 });
 
@@ -68995,8 +69013,10 @@ browser.runtime.onMessage.addListener(async (message: { type: string }) => {
 });
 
 browser.runtime.onMessage.addListener(async (message: { type: string }) => {
+  console.log("Running nba scraper")
   if (message.type === 'SCRAPER_NBA_COM') {
     void scraperNBA();
   }
 });
+
 console.log('background loaded');

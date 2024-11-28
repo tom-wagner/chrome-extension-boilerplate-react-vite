@@ -2,6 +2,9 @@ import { StorageEnum } from '../base/enums';
 import { createStorage } from '../base/base';
 import type { BaseStorage } from '../base/types';
 
+
+
+
 type BackgroundData = {
   lastUpdate: number;
   counter: number;
@@ -12,6 +15,8 @@ type BackgroundData = {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   etrLastUpdated: any;
   pickGroupIdToTarget: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  minutesProjections: any;
 };
 
 export const BASE_DATA: BackgroundData = {
@@ -21,6 +26,7 @@ export const BASE_DATA: BackgroundData = {
   etrLastUpdated: 'N/A',
   pickSixSlates: {},
   pickGroupIdToTarget: '',
+  minutesProjections: {},
 };
 
 const storage = createStorage<BackgroundData>('PICK6_STORAGE', BASE_DATA, {

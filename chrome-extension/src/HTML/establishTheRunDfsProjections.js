@@ -36,4 +36,5 @@ function fetchData() {
 
   console.log(players);
 }
+
 fetchData();
