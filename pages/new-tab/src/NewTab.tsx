@@ -23,6 +23,60 @@ type Slate = {
   config: SlateConfig;
 };
 
+// Add new type and component after existing types
+type ToolType = 'PICK6' | 'NBA';
+
+const NbaTools: React.FC = () => {
+  return (
+    <div className="container mx-auto p-4">
+      <h1 className="text-2xl font-bold mb-4">NBA Tools</h1>
+      <div className="flex flex-wrap gap-4">
+        <button
+          onClick={() => {
+            void chrome.runtime.sendMessage({
+              type: 'OPEN_TAB',
+              url: 'https://www.nba.com/stats/players/traditional'
+            });
+          }}
+          className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+        >
+          Open NBA.com
+        </button>
+
+        <button
+          onClick={() => {
+            void chrome.runtime.sendMessage({
+              type: 'OPEN_TAB',
+              url: 'https://establishtherun.com/draftkings-nba-projections/',
+            });
+          }}
+          className="bg-purple-500 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded"
+        >
+          Open ETR
+        </button>
+
+        <button
+          onClick={() => {
+            void chrome.runtime.sendMessage({ type: 'SCRAPER_NBA_COM' });
+          }}
+          className="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded"
+        >
+          Scrape NBA.com
+        </button>
+
+        <button
+          onClick={() => {
+            void chrome.runtime.sendMessage({ type: 'SCRAPE_ETR' });
+          }}
+          className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded"
+        >
+          Scrape ETR
+        </button>
+      </div>
+    </div>
+  );
+};
+
 // Mock data
 const SLATES: Slate[] = [
   {
@@ -212,6 +266,7 @@ export default function Component() {
   console.log('Initial state:', state);
   const [selectedDraftGroup, setSelectedDraftGroup] = useState<number>(SLATES[0].draftGroupId);
   const [selectedGame, setSelectedGame] = useState<string>(SLATES[0].games[0].teams);
+  const [selectedTool, setSelectedTool] = useState<ToolType>('PICK6');
 
   const handleInputChange = (
     draftGroupId: number,
@@ -245,52 +300,81 @@ export default function Component() {
   return (
     <AppContext.Provider value={{ state, setState }}>
       <div className="container mx-auto p-4">
-        <div className="flex space-x-4 mb-4">
-          <select
-            className="w-[180px] p-2 border rounded"
-            onChange={e => setSelectedDraftGroup(Number(e.target.value))}
-            value={selectedDraftGroup || ''}>
-            <option value="" disabled>
-              Select Draft Group
-            </option>
-            {SLATES.map(slate => (
-              <option key={slate.draftGroupId} value={slate.draftGroupId}>
-                Draft Group {slate.draftGroupId}
-              </option>
-            ))}
-          </select>
-
-          <select
-            className="w-[180px] p-2 border rounded"
-            onChange={e => setSelectedGame(e.target.value)}
-            value={selectedGame || ''}>
-            <option value="" disabled>
-              Select Game
-            </option>
-            {SLATES.find(slate => slate.draftGroupId === selectedDraftGroup)?.games.map(game => (
-              <option key={game.teams} value={game.teams}>
-                {game.teams}
-              </option>
-            ))}
-          </select>
+        <div className="flex justify-end mb-4">
+          <div className="inline-flex rounded-md shadow-sm" role="group">
+            <button
+              type="button"
+              onClick={() => setSelectedTool('PICK6')}
+              className={`px-4 py-2 text-sm font-medium border rounded-l-lg ${selectedTool === 'PICK6'
+                ? 'bg-blue-500 text-white border-blue-500'
+                : 'bg-white text-gray-900 border-gray-200 hover:bg-gray-100'
+                }`}>
+              PICK 6 TOOLS
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedTool('NBA')}
+              className={`px-4 py-2 text-sm font-medium border-t border-b border-r rounded-r-lg ${selectedTool === 'NBA'
+                ? 'bg-blue-500 text-white border-blue-500'
+                : 'bg-white text-gray-900 border-gray-200 hover:bg-gray-100'
+                }`}>
+              NBA TOOLS
+            </button>
+          </div>
         </div>
 
-        <div className="flex">
-          <div className="w-1/5 pr-4">
-            <div className="bg-gray-100 p-4 rounded">
-              <h2 className="text-lg font-bold mb-2">Left Column</h2>
-              <p>Additional information or controls can go here.</p>
+        {selectedTool === 'PICK6' ? (
+          <>
+            <div className="flex space-x-4 mb-4">
+              <select
+                className="w-[180px] p-2 border rounded"
+                onChange={e => setSelectedDraftGroup(Number(e.target.value))}
+                value={selectedDraftGroup || ''}>
+                <option value="" disabled>
+                  Select Draft Group
+                </option>
+                {SLATES.map(slate => (
+                  <option key={slate.draftGroupId} value={slate.draftGroupId}>
+                    Draft Group {slate.draftGroupId}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                className="w-[180px] p-2 border rounded"
+                onChange={e => setSelectedGame(e.target.value)}
+                value={selectedGame || ''}>
+                <option value="" disabled>
+                  Select Game
+                </option>
+                {SLATES.find(slate => slate.draftGroupId === selectedDraftGroup)?.games.map(game => (
+                  <option key={game.teams} value={game.teams}>
+                    {game.teams}
+                  </option>
+                ))}
+              </select>
             </div>
-          </div>
 
-          <div className="w-4/5">
-            <GameConfig
-              draftGroupId={selectedDraftGroup}
-              game={selectedGame}
-              config={SLATES.find(slate => slate.draftGroupId === selectedDraftGroup)?.config || SLATES[0].config}
-            />
-          </div>
-        </div>
+            <div className="flex">
+              <div className="w-1/5 pr-4">
+                <div className="bg-gray-100 p-4 rounded">
+                  <h2 className="text-lg font-bold mb-2">Left Column</h2>
+                  <p>Additional information or controls can go here.</p>
+                </div>
+              </div>
+
+              <div className="w-4/5">
+                <GameConfig
+                  draftGroupId={selectedDraftGroup}
+                  game={selectedGame}
+                  config={SLATES.find(slate => slate.draftGroupId === selectedDraftGroup)?.config || SLATES[0].config}
+                />
+              </div>
+            </div>
+          </>
+        ) : (
+          <NbaTools />
+        )}
       </div>
     </AppContext.Provider>
   );

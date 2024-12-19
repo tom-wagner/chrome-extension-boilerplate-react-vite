@@ -68242,7 +68242,7 @@ const fetchNBAStats = async url => {
       args: [url]
     });
 
-    console.log(result[0].result);
+    return result[0].result;
   } catch (error) {
     console.error('Error fetching data:', error);
   }
@@ -68252,22 +68252,31 @@ const fetchNBAStats = async url => {
 // https://www.nba.com/stats/players/traditional?PerMode=Totals&sort=PTS&dir=-1
 async function scraperNBA() {
   console.log('Scraping NBA stats...');
-  // Teams Opponent
-  fetchNBAStats(
+  const opponentStatsByTeam = await fetchNBAStats(
     `https://stats.nba.com/stats/leaguedashteamstats?Conference=&DateFrom=&DateTo=&Division=&GameScope=&GameSegment=&Height=&ISTRound=&LastNGames=0&LeagueID=00&Location=&MeasureType=Opponent&Month=0&OpponentTeamID=0&Outcome=&PORound=0&PaceAdjust=N&PerMode=Per100Possessions&Period=0&PlayerExperience=&PlayerPosition=&PlusMinus=N&Rank=N&Season=2024-25&SeasonSegment=&SeasonType=Regular%20Season&ShotClockRange=&StarterBench=&TeamID=0&TwoWay=0&VsConference=&VsDivision=`,
   );
-  //Players Advanced
-  fetchNBAStats(
+  console.log({ opponentStatsByTeam });
+
+  const playerStats = await fetchNBAStats(
     `https://stats.nba.com/stats/leaguedashplayerstats?College=&Conference=&Country=&DateFrom=&DateTo=&Division=&DraftPick=&DraftYear=&GameScope=&GameSegment=&Height=&ISTRound=&LastNGames=0&LeagueID=00&Location=&MeasureType=Advanced&Month=0&OpponentTeamID=0&Outcome=&PORound=0&PaceAdjust=N&PerMode=Per100Possessions&Period=0&PlayerExperience=&PlayerPosition=&PlusMinus=N&Rank=N&Season=2024-25&SeasonSegment=&SeasonType=Regular%20Season&ShotClockRange=&StarterBench=&TeamID=0&VsConference=&VsDivision=&Weight=`,
   );
-  // Teams Advanced
-  fetchNBAStats(
+  console.log({ playerStats });
+
+
+  const advancedByTeam = await fetchNBAStats(
     `https://stats.nba.com/stats/leaguedashteamstats?Conference=&DateFrom=&DateTo=&Division=&GameScope=&GameSegment=&Height=&ISTRound=&LastNGames=0&LeagueID=00&Location=&MeasureType=Advanced&Month=0&OpponentTeamID=0&Outcome=&PORound=0&PaceAdjust=N&PerMode=PerGame&Period=0&PlayerExperience=&PlayerPosition=&PlusMinus=N&Rank=N&Season=2024-25&SeasonSegment=&SeasonType=Regular%20Season&ShotClockRange=&StarterBench=&TeamID=0&TwoWay=0&VsConference=&VsDivision=`,
   );
-  //Players Usage
-  fetchNBAStats(
+  console.log({ advancedByTeam });
+
+  const scoringDistribution = await fetchNBAStats(
     `https://stats.nba.com/stats/leaguedashplayerstats?College=&Conference=&Country=&DateFrom=&DateTo=&Division=&DraftPick=&DraftYear=&GameScope=&GameSegment=&Height=&ISTRound=&LastNGames=0&LeagueID=00&Location=&MeasureType=Usage&Month=0&OpponentTeamID=0&Outcome=&PORound=0&PaceAdjust=N&PerMode=PerGame&Period=0&PlayerExperience=&PlayerPosition=&PlusMinus=N&Rank=N&Season=2024-25&SeasonSegment=&SeasonType=Regular%20Season&ShotClockRange=&StarterBench=&TeamID=0&VsConference=&VsDivision=&Weight=`,
   );
+  console.log({ scoringDistribution });
+
+  const playerTraditionalPer100 = await fetchNBAStats(
+    `https://stats.nba.com/stats/leaguedashplayerstats?College=&Conference=&Country=&DateFrom=&DateTo=&Division=&DraftPick=&DraftYear=&GameScope=&GameSegment=&Height=&ISTRound=&LastNGames=0&LeagueID=00&Location=&MeasureType=Base&Month=0&OpponentTeamID=0&Outcome=&PORound=0&PaceAdjust=N&PerMode=Per100Possessions&Period=0&PlayerExperience=&PlayerPosition=&PlusMinus=N&Rank=N&Season=2024-25&SeasonSegment=&SeasonType=Regular%20Season&ShotClockRange=&StarterBench=&TeamID=0&VsConference=&VsDivision=&Weight=`
+  );
+  console.log({ playerTraditionalPer100 });
 }
 
 async function getLiveStats() {
@@ -68564,7 +68573,7 @@ async function getFullDetail() {
             const playerName = cells[0].textContent.trim(); // Player name
             // const position = cells[1].textContent.trim();          // Position
             const team = cells[2].textContent.trim(); // Team
-            const oop = cells[3].textContent.trim(); // Opponent
+            const opp = cells[3].textContent.trim(); // Opponent
             const minutes = parseFloat(cells[4].textContent); // Minutes
             // const points = parseFloat(cells[5].textContent);       // Points
             // const assists = parseFloat(cells[6].textContent);      // Assists
@@ -68576,7 +68585,7 @@ async function getFullDetail() {
 
             players[playerName] = {
               team,
-              oop,
+              opp,
               minutes,
             };
           });
@@ -69018,5 +69027,25 @@ browser.runtime.onMessage.addListener(async (message: { type: string }) => {
     void scraperNBA();
   }
 });
+
+browser.runtime.onMessage.addListener(async (message: { type: string; url: string }) => {
+  if (message.type === 'OPEN_TAB') {
+    await browser.tabs.create({
+      url: message.url,
+      active: false
+    });
+  }
+});
+
+
+// TODO: ADD BUTTONS TO SITE
+// 1. Open NBA.com
+// 2. Scrape NBA.com
+// 3. Open ETR
+// 4. Scrape ETR
+
+// TODO: CONTINUE WITH THE SCRAPING OF NBA.COM
+// TODO: NEED TO PULL IN OVER/UNDER FROM SOMEWHERE
+// --> MAYBE NBA.COM
 
 console.log('background loaded');
