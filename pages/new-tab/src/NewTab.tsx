@@ -1,6 +1,9 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
-import React, { useState, createContext, useContext } from 'react';
+import React, { useState, createContext, useContext, useEffect } from 'react';
+import { useStorage, withErrorBoundary, withSuspense } from '@extension/shared';
+import { backgroundStorage, exampleThemeStorage } from '@extension/storage';
 
 // Define types
 type Game = { teams: string };
@@ -24,7 +27,84 @@ type Slate = {
 };
 
 // Add new type and component after existing types
-type ToolType = 'PICK6' | 'NBA';
+type ToolType = 'PICK6' | 'NBA' | 'NFL';
+
+// Mock data
+const SLATES: Slate[] = [
+  {
+    draftGroupId: 12345,
+    maxAmountBySlipSize: { 2: 100, 3: 100, 4: 100, 5: 100, 6: 100 },
+    games: [{ teams: 'DET/MIN' }, { teams: 'LAL/NYK' }, { teams: 'FULL_SLATE' }],
+    config: {
+      singleGame: {
+        4: { maxExposure: 0.35, overSlips: 10, underSlips: 30, amount: 5, potentialSlips: { O: [], U: [] } },
+        5: { maxExposure: 0.35, overSlips: 10, underSlips: 30, amount: 5, potentialSlips: { O: [], U: [] } },
+        6: { maxExposure: 0.35, overSlips: 10, underSlips: 30, amount: 5, potentialSlips: { O: [], U: [] } },
+      },
+      mixIn: {
+        3: { maxExposure: 0.35, overSlips: 10, underSlips: 30, amount: 5, potentialSlips: { O: [], U: [] } },
+        4: { maxExposure: 0.35, overSlips: 10, underSlips: 30, amount: 5, potentialSlips: { O: [], U: [] } },
+        5: { maxExposure: 0.35, overSlips: 10, underSlips: 30, amount: 5, potentialSlips: { O: [], U: [] } },
+      },
+    },
+  },
+  {
+    draftGroupId: 67890,
+    maxAmountBySlipSize: { 2: 150, 3: 150, 4: 150, 5: 150, 6: 150 },
+    games: [{ teams: 'BOS/MIA' }, { teams: 'GSW/PHX' }, { teams: 'FULL_SLATE' }],
+    config: {
+      singleGame: {
+        4: { maxExposure: 0.4, overSlips: 15, underSlips: 35, amount: 7, potentialSlips: { O: [], U: [] } },
+        5: { maxExposure: 0.4, overSlips: 15, underSlips: 35, amount: 7, potentialSlips: { O: [], U: [] } },
+        6: { maxExposure: 0.4, overSlips: 15, underSlips: 35, amount: 7, potentialSlips: { O: [], U: [] } },
+      },
+      mixIn: {
+        3: { maxExposure: 0.4, overSlips: 15, underSlips: 35, amount: 7, potentialSlips: { O: [], U: [] } },
+        4: { maxExposure: 0.4, overSlips: 15, underSlips: 35, amount: 7, potentialSlips: { O: [], U: [] } },
+        5: { maxExposure: 0.4, overSlips: 15, underSlips: 35, amount: 7, potentialSlips: { O: [], U: [] } },
+      },
+    },
+  },
+];
+
+const STACK_BUILDER_COLUMNS = [
+  'Stack 1',
+  'Stack 2',
+  'Stack 3',
+  'Stack 4',
+  'Stack 5',
+];
+
+const CONFIG_ROWS = [
+  { displayName: 'STACK_WITH_ONE_WR' },
+  { displayName: 'STACK_WITH_TWO_WR' },
+];
+
+const STAT_HEADERS = [
+  "displayName",
+  "stat",
+  "targetValue",
+  // "moreDraftableId",
+  // "lessDraftableId",
+  "overProbability",
+  // "Player",
+  "Position",
+  "Team",
+  "Opponent",
+  "Completions",
+  "Attempts",
+  "Pass Yards",
+  "Pass TDs",
+  "Pass INTs",
+  "Carries",
+  "Rush Yards",
+  "Rush TDs",
+  "Receptions",
+  "Receiving Yards",
+  "Receiving TDs"
+];
+
+const HEADERS = [...STACK_BUILDER_COLUMNS, ...STAT_HEADERS];
 
 const NbaTools: React.FC = () => {
   return (
@@ -77,43 +157,257 @@ const NbaTools: React.FC = () => {
   );
 };
 
-// Mock data
-const SLATES: Slate[] = [
-  {
-    draftGroupId: 12345,
-    maxAmountBySlipSize: { 2: 100, 3: 100, 4: 100, 5: 100, 6: 100 },
-    games: [{ teams: 'DET/MIN' }, { teams: 'LAL/NYK' }, { teams: 'FULL_SLATE' }],
-    config: {
-      singleGame: {
-        4: { maxExposure: 0.35, overSlips: 10, underSlips: 30, amount: 5, potentialSlips: { O: [], U: [] } },
-        5: { maxExposure: 0.35, overSlips: 10, underSlips: 30, amount: 5, potentialSlips: { O: [], U: [] } },
-        6: { maxExposure: 0.35, overSlips: 10, underSlips: 30, amount: 5, potentialSlips: { O: [], U: [] } },
-      },
-      mixIn: {
-        3: { maxExposure: 0.35, overSlips: 10, underSlips: 30, amount: 5, potentialSlips: { O: [], U: [] } },
-        4: { maxExposure: 0.35, overSlips: 10, underSlips: 30, amount: 5, potentialSlips: { O: [], U: [] } },
-        5: { maxExposure: 0.35, overSlips: 10, underSlips: 30, amount: 5, potentialSlips: { O: [], U: [] } },
-      },
-    },
-  },
-  {
-    draftGroupId: 67890,
-    maxAmountBySlipSize: { 2: 150, 3: 150, 4: 150, 5: 150, 6: 150 },
-    games: [{ teams: 'BOS/MIA' }, { teams: 'GSW/PHX' }, { teams: 'FULL_SLATE' }],
-    config: {
-      singleGame: {
-        4: { maxExposure: 0.4, overSlips: 15, underSlips: 35, amount: 7, potentialSlips: { O: [], U: [] } },
-        5: { maxExposure: 0.4, overSlips: 15, underSlips: 35, amount: 7, potentialSlips: { O: [], U: [] } },
-        6: { maxExposure: 0.4, overSlips: 15, underSlips: 35, amount: 7, potentialSlips: { O: [], U: [] } },
-      },
-      mixIn: {
-        3: { maxExposure: 0.4, overSlips: 15, underSlips: 35, amount: 7, potentialSlips: { O: [], U: [] } },
-        4: { maxExposure: 0.4, overSlips: 15, underSlips: 35, amount: 7, potentialSlips: { O: [], U: [] } },
-        5: { maxExposure: 0.4, overSlips: 15, underSlips: 35, amount: 7, potentialSlips: { O: [], U: [] } },
-      },
-    },
-  },
-];
+const NflTools: React.FC = () => {
+  const [simulationResults, setUnabatedNflSimulationResults] = useState<any[]>([]);
+  const [stackSizes, setStackSizes] = useState<{ [key: string]: string }>({});
+  const [stackConfigurations, setStackConfigurations] = useState<Set<string>>(new Set());
+  const { unabatedNflSimulationResults } = useStorage(backgroundStorage);
+  const simToUse = simulationResults.length > 0 ? simulationResults : unabatedNflSimulationResults;
+
+  // console.log({ simToUse, stackSizes, stackConfigurations });
+
+  console.log(stackConfigurations);
+
+  return (
+    <div className="container mx-auto p-4">
+      <h1 className="text-2xl font-bold mb-4">NFL Tools</h1>
+      <div className="flex flex-wrap gap-4">
+        <button
+          onClick={() => {
+            window.open('https://unabated.com', '_blank');
+          }}
+          className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+        >
+          Open Unabated
+        </button>
+
+        <button
+          onClick={() => {
+            void chrome.runtime.sendMessage({
+              type: 'OPEN_TAB',
+              url: 'https://establishtherun.com/thursday-night-football-projections-detail/',
+            });
+          }}
+          className="bg-purple-500 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded"
+        >
+          Open ETR Thursday
+        </button>
+
+        <button
+          onClick={() => {
+            void chrome.runtime.sendMessage({
+              type: 'OPEN_TAB',
+              url: 'https://establishtherun.com/in-season-package/full-projections-detail/',
+            });
+          }}
+          className="bg-purple-500 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded"
+        >
+          Open ETR Sunday
+        </button>
+
+        <button
+          onClick={() => {
+            void chrome.runtime.sendMessage({
+              type: 'OPEN_TAB',
+              url: 'https://establishtherun.com/monday-night-football-projections-detail/',
+            });
+          }}
+          className="bg-purple-500 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded"
+        >
+          Open ETR Monday
+        </button>
+
+        <button
+          onClick={() => {
+            void chrome.runtime.sendMessage({ type: 'SCRAPE_ETR_THURSDAY' });
+          }}
+          className="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded"
+        >
+          Scrape ETR Thursday
+        </button>
+
+        <button
+          onClick={() => {
+            void chrome.runtime.sendMessage({ type: 'SCRAPE_ETR_SUNDAY' });
+          }}
+          className="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded"
+        >
+          Scrape ETR Sunday
+        </button>
+
+        <button
+          onClick={() => {
+            void chrome.runtime.sendMessage({ type: 'SCRAPE_ETR_MONDAY' });
+          }}
+          className="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded"
+        >
+          Scrape ETR Monday
+        </button>
+
+        {/* Unabated NFL Simulation Results Table */}
+        <div className="mt-8">
+          <h2 className="text-xl font-bold mb-4">Unabated NFL Simulation Results</h2>
+          <div className="overflow-x-auto">
+            <table className="min-w-full table-auto border-collapse border border-gray-300">
+              <thead>
+                <tr className="bg-gray-100">
+                  {HEADERS.map((header) => (
+                    <th
+                      key={header}
+                      className={`border border-gray-300 px-4 py-2 cursor-pointer hover:bg-gray-200`}
+                      onClick={() => {
+                        const sortedResults = [...simToUse].sort((a, b) => {
+                          if (a[header] === b[header]) return 0;
+                          if (typeof a[header] === 'number') {
+                            return a[header] > b[header] ? 1 : -1;
+                          }
+                          return String(a[header]).localeCompare(String(b[header]));
+                        });
+                        setUnabatedNflSimulationResults(
+                          JSON.stringify(sortedResults) === JSON.stringify(simToUse)
+                            ? sortedResults.reverse()
+                            : sortedResults
+                        );
+                      }}
+                    >
+                      {header.startsWith('Stack') ? (
+                        <div>
+                          {header}
+                          <select
+                            className="block w-full mt-1 text-sm"
+                            onChange={(e) => {
+                              setStackSizes(prev => ({
+                                ...prev,
+                                [header]: e.target.value
+                              }))
+                            }}
+                          >
+                            <option value="">Select size</option>
+                            <option value="5">5</option>
+                            <option value="10">10</option>
+                            <option value="15">15</option>
+                            <option value="20">20</option>
+                            <option value="25">25</option>
+                            <option value="30">30</option>
+                            <option value="35">35</option>
+                            <option value="40">40</option>
+                            <option value="45">45</option>
+                            <option value="50">50</option>
+                          </select>
+                        </div>
+                      ) : header}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  ...CONFIG_ROWS,
+                  ...simToUse
+                ].map((row: any, index: number) => {
+                  const isBlankRow = index < CONFIG_ROWS.length;
+                  return (
+                    <tr key={isBlankRow ? `blank-${index}` : index} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                      {HEADERS.map((header, cellIndex) => {
+                        if (header === 'displayName' && isBlankRow) {
+                          return (
+                            <td key={cellIndex} className="border border-gray-300 px-4 py-2">
+                              {CONFIG_ROWS[index].displayName}
+                            </td>
+                          );
+                        }
+
+                        if (!header.startsWith('Stack')) return (
+                          <td key={cellIndex} className="border border-gray-300 px-4 py-2">
+                            {!isBlankRow && (typeof row[header] === 'number' ? Number(row[header].toFixed(3)) : row[header])}
+                          </td>
+                        );
+
+                        // Handle Stack columns
+                        const configKeyOver = !isBlankRow ? `${header}/${row.displayName}/${row.stat}/OVER` : '';
+                        const configKeyUnder = !isBlankRow ? `${header}/${row.displayName}/${row.stat}/UNDER` : '';
+
+                        return (
+                          <td key={cellIndex} className="border border-gray-300 px-4 py-2">
+                            {isBlankRow ? (
+                              <div className="flex items-center justify-center">
+                                <input
+                                  type="checkbox"
+                                  className="mt-1"
+                                  checked={stackConfigurations.has(`${header}/${row.displayName}`)}
+                                  onChange={(e) => {
+                                    setStackConfigurations(prev => {
+                                      const newSet = new Set(prev);
+                                      if (e.target.checked) {
+                                        newSet.add(`${header}/${row.displayName}`);
+                                      } else {
+                                        newSet.delete(`${header}/${row.displayName}`);
+                                      }
+                                      return newSet;
+                                    });
+                                  }}
+                                />
+                              </div>
+                            ) : (
+                              <div>
+                                <div className="flex flex-col gap-2 mt-1">
+                                  <label className="flex items-center">
+                                    <input
+                                      type="checkbox"
+                                      className="mr-1"
+                                      checked={stackConfigurations.has(configKeyOver)}
+                                      disabled={stackConfigurations.has(configKeyUnder)}
+                                      onChange={(e) => {
+                                        setStackConfigurations(prev => {
+                                          const newSet = new Set(prev);
+                                          if (e.target.checked) {
+                                            newSet.add(configKeyOver);
+                                          } else {
+                                            newSet.delete(configKeyOver);
+                                          }
+                                          return newSet;
+                                        });
+                                      }}
+                                    />
+                                    OVER
+                                  </label>
+                                  <label className="flex items-center">
+                                    <input
+                                      type="checkbox"
+                                      className="mr-1"
+                                      checked={stackConfigurations.has(configKeyUnder)}
+                                      disabled={stackConfigurations.has(configKeyOver)}
+                                      onChange={(e) => {
+                                        setStackConfigurations(prev => {
+                                          const newSet = new Set(prev);
+                                          if (e.target.checked) {
+                                            newSet.add(configKeyUnder);
+                                          } else {
+                                            newSet.delete(configKeyUnder);
+                                          }
+                                          return newSet;
+                                        });
+                                      }}
+                                    />
+                                    UNDER
+                                  </label>
+                                </div>
+                              </div>
+                            )}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 // Create context
 const AppContext = createContext<{
@@ -135,17 +429,15 @@ const GameConfig: React.FC<{ draftGroupId: number; game: string; config: SlateCo
   game,
   config,
 }) => {
-  console.log('GameConfig props:', { draftGroupId, game, config });
   const { state } = useAppContext();
 
   const renderConfigSection = (type: 'singleGame' | 'mixIn') => (
     <div className="mb-8">
       <h2 className="text-2xl font-bold mb-4">{type === 'singleGame' ? 'Single Game' : 'Mix In'}</h2>
       {Object.entries(config[type]).map(([slipSize, slipConfig]) => {
-        console.log(`Rendering ConfigRow for ${type}, size ${slipSize}`);
         return (
           <ConfigRow
-            key={`${type}-${slipSize}`}
+            key={`${type}- ${slipSize}`}
             draftGroupId={draftGroupId}
             game={game}
             type={type}
@@ -172,14 +464,10 @@ const ConfigRow: React.FC<{
   slipSize: number;
   config: Config;
 }> = ({ draftGroupId, game, type, slipSize, config }) => {
-  console.log('ConfigRow props:', { draftGroupId, game, type, slipSize, config });
   const { state, setState } = useAppContext();
-  console.log('Context in ConfigRow:', state);
 
-  const stateKey = `${draftGroupId}-${game}-${type}-${slipSize}`;
-  console.log('stateKey:', stateKey);
+  const stateKey = `${draftGroupId} - ${game} - ${type} - ${slipSize}`;
   const rowState = state[stateKey] || { ...config };
-  console.log('rowState:', rowState);
 
   const handleInputChange = (field: string, value: number) => {
     console.log(draftGroupId, game, type, field, value);
@@ -191,7 +479,6 @@ const ConfigRow: React.FC<{
 
   return (
     <div className="flex items-center space-x-4 mb-4">
-      {console.log('Rendering ConfigRow, rowState:', rowState)}
       <span className="w-20">Size {slipSize}</span>
 
       <input
@@ -238,8 +525,7 @@ const ConfigRow: React.FC<{
   );
 };
 
-export default function Component() {
-  console.log('Initial SLATES:', SLATES);
+function Component() {
   const [state, setState] = useState<{ [key: string]: any }>(() => {
     // Initialize state with default values from SLATES
     const initialState: { [key: string]: any } = {};
@@ -248,25 +534,23 @@ export default function Component() {
       slate.games.forEach(game => {
         // Handle singleGame config
         Object.entries(slate.config.singleGame).forEach(([slipSize, slipConfig]) => {
-          const key = `${slate.draftGroupId}-${game.teams}-singleGame-${slipSize}`;
+          const key = `${slate.draftGroupId} - ${game.teams} - singleGame - ${slipSize}`;
           initialState[key] = { ...slipConfig };
         });
 
         // Handle mixIn config
         Object.entries(slate.config.mixIn).forEach(([slipSize, slipConfig]) => {
-          const key = `${slate.draftGroupId}-${game.teams}-mixIn-${slipSize}`;
+          const key = `${slate.draftGroupId} - ${game.teams} - mixIn - ${slipSize}`;
           initialState[key] = { ...slipConfig };
         });
       });
     });
 
-    console.log('Initialized state:', initialState);
     return initialState;
   });
-  console.log('Initial state:', state);
   const [selectedDraftGroup, setSelectedDraftGroup] = useState<number>(SLATES[0].draftGroupId);
   const [selectedGame, setSelectedGame] = useState<string>(SLATES[0].games[0].teams);
-  const [selectedTool, setSelectedTool] = useState<ToolType>('PICK6');
+  const [selectedTool, setSelectedTool] = useState<ToolType>('NFL');
 
   const handleInputChange = (
     draftGroupId: number,
@@ -279,8 +563,8 @@ export default function Component() {
     console.log(draftGroupId, game, type, field, value);
     setState(prevState => ({
       ...prevState,
-      [`${draftGroupId}-${game}-${type}-${slipSize}`]: {
-        ...prevState[`${draftGroupId}-${game}-${type}-${slipSize}`],
+      [`${draftGroupId} - ${game} - ${type} - ${slipSize}`]: {
+        ...prevState[`${draftGroupId} - ${game} - ${type} - ${slipSize}`],
         [field]: value,
       },
     }));
@@ -293,7 +577,7 @@ export default function Component() {
     slipSize: number,
     action: 'refresh' | 'place',
   ) => {
-    const config = state[`${draftGroupId}-${game}-${type}-${slipSize}`];
+    const config = state[`${draftGroupId} - ${game} - ${type} - ${slipSize}`];
     console.log(draftGroupId, game, type, config.overSlips, config.underSlips, config.amount, action);
   };
 
@@ -305,7 +589,7 @@ export default function Component() {
             <button
               type="button"
               onClick={() => setSelectedTool('PICK6')}
-              className={`px-4 py-2 text-sm font-medium border rounded-l-lg ${selectedTool === 'PICK6'
+              className={`px - 4 py - 2 text - sm font - medium border rounded - l - lg ${selectedTool === 'PICK6'
                 ? 'bg-blue-500 text-white border-blue-500'
                 : 'bg-white text-gray-900 border-gray-200 hover:bg-gray-100'
                 }`}>
@@ -314,14 +598,24 @@ export default function Component() {
             <button
               type="button"
               onClick={() => setSelectedTool('NBA')}
-              className={`px-4 py-2 text-sm font-medium border-t border-b border-r rounded-r-lg ${selectedTool === 'NBA'
+              className={`px-4 py-2 text-sm font-medium border-t border-b border-r ${selectedTool === 'NBA'
                 ? 'bg-blue-500 text-white border-blue-500'
                 : 'bg-white text-gray-900 border-gray-200 hover:bg-gray-100'
                 }`}>
               NBA TOOLS
             </button>
+            <button
+              type="button"
+              onClick={() => setSelectedTool('NFL')}
+              className={`px-4 py-2 text-sm font-medium border-t border-b border-r rounded-r-lg ${selectedTool === 'NFL'
+                ? 'bg-blue-500 text-white border-blue-500'
+                : 'bg-white text-gray-900 border-gray-200 hover:bg-gray-100'
+                }`}>
+              PICK 6 NFL
+            </button>
           </div>
         </div>
+
 
         {selectedTool === 'PICK6' ? (
           <>
@@ -372,10 +666,14 @@ export default function Component() {
               </div>
             </div>
           </>
-        ) : (
+        ) : selectedTool === 'NBA' ? (
           <NbaTools />
-        )}
+        ) : selectedTool === 'NFL' ? (
+          <NflTools />
+        ) : null}
       </div>
     </AppContext.Provider>
   );
 }
+
+export default withErrorBoundary(withSuspense(Component, <div> Loading ... </div>), <div> Error Occur </div>);
