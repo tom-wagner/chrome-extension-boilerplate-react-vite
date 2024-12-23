@@ -156,11 +156,15 @@ const NflTools: React.FC = () => {
   const [simulationResults, setUnabatedNflSimulationResults] = useState<any[]>([]);
   const [stackSizes, setStackSizes] = useState<{ [key: string]: string }>({});
   const [stackConfigurations, setStackConfigurations] = useState<Set<string>>(new Set());
+  const [selectedStatFilters, setSelectedStatFilters] = useState<string[]>([]);
   const { unabatedNflSimulationResults } = useStorage(backgroundStorage);
   const simToUse = simulationResults.length > 0 ? simulationResults : unabatedNflSimulationResults;
 
   // console.log({ simToUse, stackSizes, stackConfigurations });
-  console.log(stackConfigurations);
+  // console.log(stackConfigurations);
+  console.log(selectedStatFilters);
+
+  const STAT_TYPES = Array.from(new Set(unabatedNflSimulationResults.map((result: any) => result.stat)));
 
   return (
     <div className="container mx-auto p-4">
@@ -249,173 +253,211 @@ const NflTools: React.FC = () => {
 
         {/* Unabated NFL Simulation Results Table */}
         {simulationResults.length === 0 ? '🚨🚨🚨🚨 NO SIM RESULTS; USING MOCK DATA 🚨🚨🚨🚨' : 'Sim loaded...'}
+      </div>
 
-        TODO: CONTINUE BY FOCUSING ON FEEDING ETR PROJECTIONS TO UNABATED, THEN STORING IN BACKGROUND STORAGE
+      <div className="flex flex-col mt-16 mb-4">
+        <label htmlFor="stat-filter" className="block text-sm font-medium text-gray-700 mb-2">
+          Filter by Stats:
+        </label>
+        <div className="flex gap-4">
+          {Array.from({ length: Math.ceil(STAT_TYPES.length / 3) }).slice(0, 5).map((_, columnIndex) => (
+            <div
+              key={columnIndex}
+              className="w-[200px] p-2 border border-gray-300 rounded-md shadow-sm focus-within:ring-2 focus-within:ring-blue-500"
+            >
+              {STAT_TYPES.slice(columnIndex * 3, (columnIndex + 1) * 3).map((stat) => (
+                <div key={stat} className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id={`stat-${stat}`}
+                    value={stat}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelectedStatFilters(prev => [...prev, stat]);
+                      } else {
+                        setSelectedStatFilters(prev => prev.filter(s => s !== stat));
+                      }
+                    }}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  />
+                  <label htmlFor={`stat-${stat}`} className="text-sm text-gray-700">
+                    {stat}
+                  </label>
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      </div>
 
-        <div className="mt-8">
-          <h2 className="text-xl font-bold mb-4">Unabated NFL Simulation Results</h2>
-          <div className="overflow-x-auto">
-            <table className="min-w-full table-auto border-collapse border border-gray-300">
-              <thead>
-                <tr className="bg-gray-100">
-                  {HEADERS.map((header) => (
-                    <th
-                      key={header}
-                      className={`border border-gray-300 px-4 py-2 cursor-pointer hover:bg-gray-200`}
-                      onClick={() => {
-                        const sortedResults = [...simToUse].sort((a, b) => {
-                          if (a[header] === b[header]) return 0;
-                          if (typeof a[header] === 'number') {
-                            return a[header] > b[header] ? 1 : -1;
-                          }
-                          return String(a[header]).localeCompare(String(b[header]));
-                        });
-                        setUnabatedNflSimulationResults(
-                          JSON.stringify(sortedResults) === JSON.stringify(simToUse)
-                            ? sortedResults.reverse()
-                            : sortedResults
-                        );
-                      }}
-                    >
-                      {header.startsWith('Stack') ? (
-                        <div>
-                          {header}
-                          <select
-                            className="block w-full mt-1 text-sm"
-                            onChange={(e) => {
-                              setStackSizes(prev => ({
-                                ...prev,
-                                [header]: e.target.value
-                              }))
-                            }}
-                          >
-                            <option value="">Select size</option>
-                            <option value="5">5</option>
-                            <option value="10">10</option>
-                            <option value="15">15</option>
-                            <option value="20">20</option>
-                            <option value="25">25</option>
-                            <option value="30">30</option>
-                            <option value="35">35</option>
-                            <option value="40">40</option>
-                            <option value="45">45</option>
-                            <option value="50">50</option>
-                          </select>
-                        </div>
-                      ) : header}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {simToUse.map((row: any, index: number) => {
-                  return (
-                    <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                      {HEADERS.map((header, cellIndex) => {
-                        if (!header.startsWith('Stack')) {
-                          return (
-                            <td key={cellIndex} className="border border-gray-300 px-4 py-2">
-                              {typeof row[header] === 'number' ? Number(row[header].toFixed(3)) : row[header]}
-                            </td>
-                          );
+      <div className="mt-8">
+        <h2 className="text-xl font-bold mb-4">Unabated NFL Simulation Results</h2>
+        <div className="overflow-x-auto">
+          <table className="min-w-full table-auto border-collapse border border-gray-300">
+            <thead>
+              <tr className="bg-gray-100">
+                {HEADERS.map((header) => (
+                  <th
+                    key={header}
+                    className={`border border-gray-300 px-4 py-2 cursor-pointer hover:bg-gray-200`}
+                    onClick={() => {
+                      const sortedResults = [...simToUse].sort((a, b) => {
+                        if (a[header] === b[header]) return 0;
+                        if (typeof a[header] === 'number') {
+                          return a[header] > b[header] ? 1 : -1;
                         }
+                        return String(a[header]).localeCompare(String(b[header]));
+                      });
+                      setUnabatedNflSimulationResults(
+                        JSON.stringify(sortedResults) === JSON.stringify(simToUse)
+                          ? sortedResults.reverse()
+                          : sortedResults
+                      );
+                    }}
+                  >
+                    {header.startsWith('Stack') ? (
+                      <div>
+                        {header}
+                        <select
+                          className="block w-full mt-1 text-sm"
+                          onChange={(e) => {
+                            setStackSizes(prev => ({
+                              ...prev,
+                              [header]: e.target.value
+                            }))
+                          }}
+                        >
+                          <option value="">Select size</option>
+                          <option value="5">5</option>
+                          <option value="10">10</option>
+                          <option value="15">15</option>
+                          <option value="20">20</option>
+                          <option value="25">25</option>
+                          <option value="30">30</option>
+                          <option value="35">35</option>
+                          <option value="40">40</option>
+                          <option value="45">45</option>
+                          <option value="50">50</option>
+                        </select>
+                      </div>
+                    ) : header}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {simToUse.map((row: any, index: number) => {
+                if (selectedStatFilters.length > 0 && !selectedStatFilters.includes(row.stat)) {
+                  return null;
+                }
 
-                        // Handle Stack columns
-                        const configKeyOver = `${header}/${row.displayName}/${row.stat}/OVER`;
-                        const configKeyUnder = `${header}/${row.displayName}/${row.stat}/UNDER`;
-
+                return (
+                  <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                    {HEADERS.map((header, cellIndex) => {
+                      if (!header.startsWith('Stack')) {
                         return (
                           <td key={cellIndex} className="border border-gray-300 px-4 py-2">
-                            <div>
-                              <div className="flex gap-2 mt-1">
-                                <div className="flex flex-col gap-2">
-                                  {row.Position !== 'QB' && (
-                                    <>
-                                      <label className="flex items-center">
-                                        <input
-                                          type="checkbox"
-                                          className="mr-1"
-                                          checked={stackConfigurations.has(configKeyOver)}
-                                          disabled={stackConfigurations.has(configKeyUnder)}
-                                          onChange={(e) => {
-                                            setStackConfigurations(prev => {
-                                              const newSet = new Set(prev);
-                                              if (e.target.checked) {
-                                                newSet.add(configKeyOver);
-                                              } else {
-                                                newSet.delete(configKeyOver);
-                                              }
-                                              return newSet;
-                                            });
-                                          }}
-                                        />
-                                        OVER
-                                      </label>
-                                      <label className="flex items-center">
-                                        <input
-                                          type="checkbox"
-                                          className="mr-1"
-                                          checked={stackConfigurations.has(configKeyUnder)}
-                                          disabled={stackConfigurations.has(configKeyOver)}
-                                          onChange={(e) => {
-                                            setStackConfigurations(prev => {
-                                              const newSet = new Set(prev);
-                                              if (e.target.checked) {
-                                                newSet.add(configKeyUnder);
-                                              } else {
-                                                newSet.delete(configKeyUnder);
-                                              }
-                                              return newSet;
-                                            });
-                                          }}
-                                        />
-                                        UNDER
-                                      </label>
-                                    </>
-                                  )}
-                                </div>
-                                {row.Position === 'QB' && (
-                                  <div className="flex flex-col justify-center ml-2 gap-[2px]">
-                                    <label className="flex items-center text-[8px]">
+                            {typeof row[header] === 'number' ? Number(row[header].toFixed(3)) : row[header]}
+                          </td>
+                        );
+                      }
+
+                      // Handle Stack columns
+                      const configKeyOver = `${header}/${row.displayName}/${row.stat}/OVER`;
+                      const configKeyUnder = `${header}/${row.displayName}/${row.stat}/UNDER`;
+
+                      return (
+                        <td key={cellIndex} className="border border-gray-300 px-4 py-2">
+                          <div>
+                            <div className="flex gap-2 mt-1">
+                              <div className="flex flex-col gap-2">
+                                {row.Position !== 'QB' && (
+                                  <>
+                                    <label className="flex items-center">
                                       <input
                                         type="checkbox"
-                                        className="mr-1 w-3 h-3"
-                                        checked={stackConfigurations.has(`${configKeyOver}~1_WR_STACK`)}
+                                        className="mr-1"
+                                        checked={stackConfigurations.has(configKeyOver)}
+                                        disabled={stackConfigurations.has(configKeyUnder)}
                                         onChange={(e) => {
                                           setStackConfigurations(prev => {
                                             const newSet = new Set(prev);
                                             if (e.target.checked) {
-                                              newSet.add(`${configKeyOver}~1_WR_STACK`);
+                                              newSet.add(configKeyOver);
                                             } else {
-                                              newSet.delete(`${configKeyOver}~1_WR_STACK`);
+                                              newSet.delete(configKeyOver);
                                             }
                                             return newSet;
                                           });
                                         }}
                                       />
-                                      OVER 1_WR
+                                      OVER
                                     </label>
-                                    <label className="flex items-center text-[8px]">
+                                    <label className="flex items-center">
                                       <input
                                         type="checkbox"
-                                        className="mr-1 w-3 h-3"
-                                        checked={stackConfigurations.has(`${configKeyOver}~2_WR_STACK`)}
+                                        className="mr-1"
+                                        checked={stackConfigurations.has(configKeyUnder)}
+                                        disabled={stackConfigurations.has(configKeyOver)}
                                         onChange={(e) => {
                                           setStackConfigurations(prev => {
                                             const newSet = new Set(prev);
                                             if (e.target.checked) {
-                                              newSet.add(`${configKeyOver}~2_WR_STACK`);
+                                              newSet.add(configKeyUnder);
                                             } else {
-                                              newSet.delete(`${configKeyOver}~2_WR_STACK`);
+                                              newSet.delete(configKeyUnder);
                                             }
                                             return newSet;
                                           });
                                         }}
                                       />
-                                      OVER 2_WR
+                                      UNDER
                                     </label>
-                                    {/* TODO: CONSIDER BRINGING BACK RB_OPP LOGIC; TOO COMPLEX FOR NOW */}
-                                    {/* <label className="flex items-center text-[8px]">
+                                  </>
+                                )}
+                              </div>
+                              {row.Position === 'QB' && (
+                                <div className="flex flex-col justify-center ml-2 gap-[2px]">
+                                  <label className="flex items-center text-[8px]">
+                                    <input
+                                      type="checkbox"
+                                      className="mr-1 w-3 h-3"
+                                      checked={stackConfigurations.has(`${configKeyOver}~1_WR_STACK`)}
+                                      onChange={(e) => {
+                                        setStackConfigurations(prev => {
+                                          const newSet = new Set(prev);
+                                          if (e.target.checked) {
+                                            newSet.add(`${configKeyOver}~1_WR_STACK`);
+                                          } else {
+                                            newSet.delete(`${configKeyOver}~1_WR_STACK`);
+                                          }
+                                          return newSet;
+                                        });
+                                      }}
+                                    />
+                                    OVER 1_WR
+                                  </label>
+                                  <label className="flex items-center text-[8px]">
+                                    <input
+                                      type="checkbox"
+                                      className="mr-1 w-3 h-3"
+                                      checked={stackConfigurations.has(`${configKeyOver}~2_WR_STACK`)}
+                                      onChange={(e) => {
+                                        setStackConfigurations(prev => {
+                                          const newSet = new Set(prev);
+                                          if (e.target.checked) {
+                                            newSet.add(`${configKeyOver}~2_WR_STACK`);
+                                          } else {
+                                            newSet.delete(`${configKeyOver}~2_WR_STACK`);
+                                          }
+                                          return newSet;
+                                        });
+                                      }}
+                                    />
+                                    OVER 2_WR
+                                  </label>
+                                  {/* TODO: CONSIDER BRINGING BACK RB_OPP LOGIC; TOO COMPLEX FOR NOW */}
+                                  {/* <label className="flex items-center text-[8px]">
                                       <input
                                         type="checkbox"
                                         className="mr-1 w-3 h-3"
@@ -434,46 +476,46 @@ const NflTools: React.FC = () => {
                                       />
                                       RB_OPP
                                     </label> */}
-                                    <label className="flex items-center text-[8px]">
-                                      <input
-                                        type="checkbox"
-                                        className="mr-1 w-3 h-3"
-                                        checked={stackConfigurations.has(`${configKeyUnder}~1_WR_STACK`)}
-                                        onChange={(e) => {
-                                          setStackConfigurations(prev => {
-                                            const newSet = new Set(prev);
-                                            if (e.target.checked) {
-                                              newSet.add(`${configKeyUnder}~1_WR_STACK`);
-                                            } else {
-                                              newSet.delete(`${configKeyUnder}~1_WR_STACK`);
-                                            }
-                                            return newSet;
-                                          });
-                                        }}
-                                      />
-                                      UNDER 1_WR
-                                    </label>
-                                    <label className="flex items-center text-[8px]">
-                                      <input
-                                        type="checkbox"
-                                        className="mr-1 w-3 h-3"
-                                        checked={stackConfigurations.has(`${configKeyUnder}~2_WR_STACK`)}
-                                        onChange={(e) => {
-                                          setStackConfigurations(prev => {
-                                            const newSet = new Set(prev);
-                                            if (e.target.checked) {
-                                              newSet.add(`${configKeyUnder}~2_WR_STACK`);
-                                            } else {
-                                              newSet.delete(`${configKeyUnder}~2_WR_STACK`);
-                                            }
-                                            return newSet;
-                                          });
-                                        }}
-                                      />
-                                      UNDER 2_WR
-                                    </label>
-                                    {/* TODO: CONSIDER BRINGING BACK RB_OPP LOGIC; TOO COMPLEX FOR NOW */}
-                                    {/* <label className="flex items-center text-[8px]">
+                                  <label className="flex items-center text-[8px]">
+                                    <input
+                                      type="checkbox"
+                                      className="mr-1 w-3 h-3"
+                                      checked={stackConfigurations.has(`${configKeyUnder}~1_WR_STACK`)}
+                                      onChange={(e) => {
+                                        setStackConfigurations(prev => {
+                                          const newSet = new Set(prev);
+                                          if (e.target.checked) {
+                                            newSet.add(`${configKeyUnder}~1_WR_STACK`);
+                                          } else {
+                                            newSet.delete(`${configKeyUnder}~1_WR_STACK`);
+                                          }
+                                          return newSet;
+                                        });
+                                      }}
+                                    />
+                                    UNDER 1_WR
+                                  </label>
+                                  <label className="flex items-center text-[8px]">
+                                    <input
+                                      type="checkbox"
+                                      className="mr-1 w-3 h-3"
+                                      checked={stackConfigurations.has(`${configKeyUnder}~2_WR_STACK`)}
+                                      onChange={(e) => {
+                                        setStackConfigurations(prev => {
+                                          const newSet = new Set(prev);
+                                          if (e.target.checked) {
+                                            newSet.add(`${configKeyUnder}~2_WR_STACK`);
+                                          } else {
+                                            newSet.delete(`${configKeyUnder}~2_WR_STACK`);
+                                          }
+                                          return newSet;
+                                        });
+                                      }}
+                                    />
+                                    UNDER 2_WR
+                                  </label>
+                                  {/* TODO: CONSIDER BRINGING BACK RB_OPP LOGIC; TOO COMPLEX FOR NOW */}
+                                  {/* <label className="flex items-center text-[8px]">
                                       <input
                                         type="checkbox"
                                         className="mr-1 w-3 h-3"
@@ -492,19 +534,18 @@ const NflTools: React.FC = () => {
                                       />
                                       RB_OPP
                                     </label> */}
-                                  </div>
-                                )}
-                              </div>
+                                </div>
+                              )}
                             </div>
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                          </div>
+                        </td>
+                      );
+                    })}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
