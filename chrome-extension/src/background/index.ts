@@ -1,3 +1,4 @@
+/* eslint-disable no-inner-declarations */
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-nocheck
 
@@ -6,7 +7,11 @@ import browser from 'webextension-polyfill';
 import { backgroundStorage } from '@extension/storage';
 import { scrapeAllCategoriesNBA } from './NBA';
 import { scrapeAllCategoriesNFL } from './NFL';
-import { pickableIdToPickableMap, mockUnabatedNflResult } from './MOCK_DATA';
+import {
+  pickableIdToPickableMapNba as pickableIdToPickableMap,
+  mockUnabatedNflResult,
+  pickableIdToPickableMapNfl,
+} from './MOCK_DATA';
 
 function determineResult(targetValue, abbreviation, boxScore) {
   const OVER = 'OVER';
@@ -367,8 +372,8 @@ async function refreshPick6Slates() {
             ...currentState,
             pickSixSlates: result[0].result
           });
-          
-          simulateOnUnabated();
+
+          simulateUnabatedNba();
         }
       }
     }
@@ -439,10 +444,10 @@ async function registerPick6Listener() {
   }
 }
 
-async function scrapeEtrThursday() {
+async function scrapeEtrNfl(url: string) {
   try {
     const tabs = await browser.tabs.query({
-      url: '*://*.establishtherun.com/*thursday*'
+      url,
     });
 
     for (const tab of tabs) {
@@ -455,7 +460,9 @@ async function scrapeEtrThursday() {
         const result = await browser.scripting.executeScript({
           target: { tabId: tab.id },
           func: async () => {
+            console.log('Executing script on ETR NFL...');
             function parseTable(tableElement: HTMLTableElement) {
+              console.log('Parsing table...');
               const players = [];
 
               // Get all rows from tbody
@@ -468,21 +475,21 @@ async function scrapeEtrThursday() {
 
                 // Extract data from cells based on the table structure
                 const player = {
-                  name: cells[0].textContent?.trim() || '',
-                  position: cells[1].textContent?.trim() || '',
-                  team: cells[2].textContent?.trim() || '',
-                  opponent: cells[3].textContent?.trim() || '',
-                  passCompletions: parseFloat(cells[4].textContent?.trim() || '0'),
-                  passAttempts: parseFloat(cells[5].textContent?.trim() || '0'),
-                  passYards: parseFloat(cells[6].textContent?.trim() || '0'),
-                  passTDs: parseFloat(cells[7].textContent?.trim() || '0'),
-                  passInts: parseFloat(cells[8].textContent?.trim() || '0'),
-                  carries: parseFloat(cells[9].textContent?.trim() || '0'),
-                  rushYards: parseFloat(cells[10].textContent?.trim() || '0'),
-                  rushTDs: parseFloat(cells[11].textContent?.trim() || '0'),
-                  receptions: parseFloat(cells[12].textContent?.trim() || '0'),
-                  recYards: parseFloat(cells[13].textContent?.trim() || '0'),
-                  recTDs: parseFloat(cells[14].textContent?.trim() || '0')
+                  "Player": cells[0].textContent?.trim() || '',
+                  "Position": cells[1].textContent?.trim() || '',
+                  "Team": cells[2].textContent?.trim() || '',
+                  "Opponent": cells[3].textContent?.trim() || '',
+                  "Completions": parseFloat(cells[4].textContent?.trim() || '0'),
+                  "Attempts": parseFloat(cells[5].textContent?.trim() || '0'),
+                  "Pass Yards": parseFloat(cells[6].textContent?.trim() || '0'),
+                  "Pass TDs": parseFloat(cells[7].textContent?.trim() || '0'),
+                  "Pass INTs": parseFloat(cells[8].textContent?.trim() || '0'),
+                  "Carries": parseFloat(cells[9].textContent?.trim() || '0'),
+                  "Rush Yards": parseFloat(cells[10].textContent?.trim() || '0'),
+                  "Rush TDs": parseFloat(cells[11].textContent?.trim() || '0'),
+                  "Receptions": parseFloat(cells[12].textContent?.trim() || '0'),
+                  "Receiving Yards": parseFloat(cells[13].textContent?.trim() || '0'),
+                  "Receiving TDs": parseFloat(cells[14].textContent?.trim() || '0')
                 };
 
                 players.push(player);
@@ -498,15 +505,16 @@ async function scrapeEtrThursday() {
             //   return;
             // }
 
+            // TODO: THIS IS BUSTED!!! NEED TO FIX!!
             // const lastUpdated = lastUpdatedTable?.querySelectorAll('td')[1].textContent;
-
             // const currentData = await backgroundStorage.get();
             // if (lastUpdated === currentData.etrThursdayLastUpdated) {
             //   console.log('ETR Thursday still fresh!');
             //   return;
             // }
 
-            const table = document.querySelector('table[aria-label="Thursday Projections Detail"]');
+            const table = document.querySelector('table[aria-label*="Projections Detail"]');
+            console.log({ table });
 
             if (!table) {
               console.error('No projections table found on page');
@@ -518,6 +526,8 @@ async function scrapeEtrThursday() {
           },
         });
 
+        console.log({ result });
+
         if (!result?.[0]?.result) {
           console.error('No table data found on page');
           return;
@@ -527,6 +537,7 @@ async function scrapeEtrThursday() {
 
         // Store the scraped data
         const currentData = await backgroundStorage.get();
+        console.log({ currentData });
         await backgroundStorage.set({
           ...currentData,
           etrLastUpdated: lastUpdated,
@@ -1014,7 +1025,369 @@ async function getFullDetail() {
   }
 }
 
-async function simulateOnUnabated() {
+async function simulateUnabatedNfl() {
+  const { etrProjections } = await backgroundStorage.get();
+
+  try {
+    // Query for any tabs on unabated.com
+    const tabs = await browser.tabs.query({
+      url: '*://*.unabated.com/*',
+    });
+
+    // If an unabated tab exists, inject and execute the script
+    for (const tab of tabs) {
+      if (tab.id) {
+        const result = await browser.scripting.executeScript({
+          args: [etrProjections],
+          target: { tabId: tab.id },
+          func: async (etrProjections) => {
+            const ETR_COPY_PASTE = etrProjections;
+
+            async function callUnabatedApi(player, rbReceivingYardsOverride = false) {
+              const baseUrl = 'https://api.unabated.com/api/props/nfl';
+              let url;
+
+              switch (player.Position) {
+                case 'QB':
+                  url = `${baseUrl}/quarterback/passingyards/${player.Completions}/${player['Pass Yards']}/0`;
+                  break;
+                case 'RB':
+                  if (rbReceivingYardsOverride) {
+                    url = `${baseUrl}/runningback/receivingyards/${player.Receptions}/${player['Receiving Yards']}/0`;
+                  } else {
+                    url = `${baseUrl}/runningback/rushingyards/${player.Carries}/${player['Rush Yards']}/0`;
+                  }
+                  break;
+                case 'WR':
+                  url = `${baseUrl}/widereceiver/receivingyards/${player.Receptions}/${player['Receiving Yards']}/0`;
+                  break;
+                case 'TE':
+                  url = `${baseUrl}/tightend/receivingyards/${player.Receptions}/${player['Receiving Yards']}/0`;
+                  break;
+                default:
+                  throw new Error(`Invalid position: ${player.Position}`);
+              }
+
+              // TODO: There seems to be a problem with how I am formatting the requests
+
+              const response = await fetch(url, {
+                headers: {
+                  "accept": "application/json, text/plain, */*",
+                  "accept-language": "en-US,en;q=0.9",
+                  "sec-fetch-dest": "empty",
+                  "sec-fetch-mode": "cors",
+                  "sec-fetch-site": "same-site"
+                },
+                referrer: "https://unabated.com/",
+                referrerPolicy: "strict-origin-when-cross-origin",
+                method: "GET",
+                mode: "cors",
+                credentials: "include"
+              });
+
+              return await response.json();
+            }
+            function filterTinyProjections(etrProjection) {
+              // Filter out players with tiny projections that would be noise
+              if (etrProjection.Position === "QB" && etrProjection.Completions < 10) {
+                return false;
+              }
+              if (etrProjection.Position === "WR" && etrProjection.Receptions < 0.5) {
+                return false;
+              }
+              if (etrProjection.Position === "RB" && etrProjection.Carries < 2) {
+                return false;
+              }
+              return true;
+            };
+
+            async function makeUnabatedRequests() {
+              const results = [];
+              const batchSize = 15;
+
+              for (let i = 0; i < ETR_COPY_PASTE.length; i += batchSize) {
+                const batch = ETR_COPY_PASTE.slice(i, i + batchSize);
+                console.log(`Processing batch ${i / batchSize + 1}...`);
+
+                const batchPromises = batch.filter(filterTinyProjections).map(async player => {
+                  try {
+                    console.log(`Calling Unabated API for ${player.Player}...`);
+                    const response = await callUnabatedApi(player, false);
+
+                    // TODO: Consider adding back nulls
+                    // if (response.status !== 200) {
+                    //     console.error(`Non-200 status code (${response.status}) for ${player.Player}`);
+                    //     console.error(player);
+                    //     return null;
+                    // }
+
+                    return {
+                      player,
+                      unabatedResponse: response
+                    };
+                  } catch (error) {
+                    console.error(`Error processing ${player.Player}:`, error);
+                    return null;
+                  }
+                });
+
+                const batchResults = await Promise.all(batchPromises);
+                console.log({ batchResults });
+                results.push(batchResults);
+
+                // TODO: THIS RB REC YARDS STUFF ISN'T WORKING
+
+                // Make a second API call for RBs with override = true
+                // const rbBatchPromises = batch
+                //     .filter(player => player.Position === "RB" && filterTinyProjections(player))
+                //     .map(async player => {
+                //         try {
+                //             console.log(`Making second Unabated API call for RB ${player.Player} with override...`);
+                //             const response = await callUnabatedApi(player, true); // Pass override=true
+                //             return {
+                //                 player,
+                //                 unabatedResponse: response
+                //             };
+                //         } catch (error) {
+                //             console.error(`Error processing override call for ${player.Player}:`, error);
+                //             return null;
+                //         }
+                //     });
+
+                // const rbBatchResults = await Promise.all(rbBatchPromises);
+                // results.push(rbBatchResults);
+
+                // Add delay between batches
+                if (i + batchSize < ETR_COPY_PASTE.length) {
+                  await new Promise(resolve => setTimeout(resolve, (Math.random() * 500) + 500));
+                }
+              }
+
+              console.log('All API calls completed');
+              console.log(results);
+
+              return results;
+            }
+
+            return makeUnabatedRequests();
+          },
+        });
+
+        function parseRemixContext() {
+          const mapPlayerObj = (playerObj) => {
+            const playerEntity = playerObj.pickable.pickableEntities[0];
+            const competition = playerEntity.pickableCompetitions[0];
+            const teamAbbreviation = competition.team.abbreviation;
+            const competitionSummary = competition.competitionSummary;
+            const market = playerObj.pickable.marketCategory.marketAbbreviation;
+            const position = playerObj.pickable.pickableEntities[0].pickableCompetitions[0].positionName;
+            const moreDraftableId = playerObj.activeMarket.pickableMarketSelections[0].pickableMarketSelectionId;
+            const lessDraftableId = playerObj.activeMarket.pickableMarketSelections[1].pickableMarketSelectionId;;
+            const opponentAbbreviation =
+              competitionSummary.homeTeam.abbreviation === teamAbbreviation
+                ? competitionSummary.awayTeam.abbreviation
+                : competitionSummary.homeTeam.abbreviation;
+
+
+            return {
+              displayName: playerEntity.displayName,
+              targetValue: playerObj.activeMarket.targetValue,
+              team: teamAbbreviation,
+              opponent: opponentAbbreviation,
+              statCategory: { abbreviation: market, name: playerObj.pickable.marketCategory.marketName },
+              position,
+              moreDraftableId,
+              lessDraftableId,
+            }
+          };
+
+          // window.__remixContextNewVersion.state.loaderData['routes/_index'].pickableIdToPickableMap
+          const playerObjects = Object.entries(pickableIdToPickableMap).reduce((acc, [key, value]) => {
+            if (!value.activeMarket.isPaused) {
+              acc[key] = mapPlayerObj(value);
+            } else {
+              // do nothing; can't pick paused players
+            }
+            return acc;
+          }, {});
+
+          const playerObjectsArray = Object.values(playerObjects);
+          return playerObjectsArray;
+        }
+
+        function editDistance(str1, str2) {
+          const len1 = str1.length;
+          const len2 = str2.length;
+
+          // Create a 2D array to store the distances
+          const distances = [];
+          for (let i = 0; i <= len1; i++) {
+            distances[i] = [i];
+          }
+          for (let j = 0; j <= len2; j++) {
+            distances[0][j] = j;
+          }
+
+          // Compute distances
+          for (let i = 1; i <= len1; i++) {
+            for (let j = 1; j <= len2; j++) {
+              const cost = str1[i - 1] === str2[j - 1] ? 0 : 1;
+              distances[i][j] = Math.min(distances[i - 1][j] + 1, // deletion
+                distances[i][j - 1] + 1, // insertion
+                distances[i - 1][j - 1] + cost // substitution
+              );
+            }
+          }
+
+          // Return the final distance
+          return distances[len1][len2];
+        }
+
+        function getDkName(otherName) {
+          const editDistances = window.DK_PLAYERS.map(n => [editDistance(otherName, n), n]);
+          const sortedEditDistances = editDistances.sort((a, b) => (a[0] - b[0]));
+          return sortedEditDistances[0][1];
+        }
+
+        function getEtrName(otherName) {
+          const editDistances = window.ETR_PLAYERS.map(n => [editDistance(otherName, n), n]);
+          const sortedEditDistances = editDistances.sort((a, b) => (a[0] - b[0]));
+          return sortedEditDistances[0][1];
+        }
+
+        function mergePickableLinesWithUnabatedData(pickableLines, unabatedResponses) {
+          window.playerObj = pickableLines.reduce((acc, cv) => {
+            if (cv.displayName in acc) {
+              acc[cv.displayName].push(cv);
+            } else {
+              acc[cv.displayName] = [cv];
+            }
+            return acc;
+          }, {});
+
+          window.DK_PLAYERS = Object.keys(window.playerObj);
+          window.ETR_RAW = ETR_COPY_PASTE.reduce((acc, cv) => ({
+            [cv.Player]: cv,
+            ...acc
+          }), {});
+          window.ETR_PLAYERS = Object.keys(window.ETR_RAW);
+          window.etrByPlayer = window.DK_PLAYERS.reduce((acc, cv) => {
+            const etrName = getEtrName(cv);
+            acc[cv] = window.ETR_RAW[etrName];
+            return acc;
+          }, {});
+          window.dkToEtrNameMap = window.DK_PLAYERS.reduce((acc, cv) => {
+            acc[cv] = getEtrName(cv);
+            return acc;
+          }, {});
+
+          const analyzedPicks = pickableLines.map(line => {
+            const { targetValue, displayName, moreDraftableId, lessDraftableId, statCategory } = line;
+
+            const etrData = window.etrByPlayer?.[window.dkToEtrNameMap?.[displayName] ?? ''] ?? {};
+
+            const baseObj = {
+              targetValue, displayName, moreDraftableId, lessDraftableId, stat: statCategory.name, overProbability: 0.5, ...etrData
+            }
+            if (!unabatedResponses[statCategory.name]) {
+              console.log(`${statCategory.name} not currently supported by unabated...`);
+              return baseObj
+            }
+
+            const etrName = window.dkToEtrNameMap[displayName];
+            const unabatedProbabilities = unabatedResponses[statCategory.name][etrName];
+            if (!unabatedProbabilities) {
+              console.log(`Invalid player/stat combination: ${displayName} and ${statCategory.name}`);
+              return baseObj;
+            }
+
+            if (!unabatedProbabilities[targetValue]) {
+              console.log(`No matching value for ${displayName} ${statCategory.name} ${targetValue}`);
+              console.log({ line });
+              return baseObj;
+            }
+
+            return {
+              targetValue,
+              moreDraftableId,
+              lessDraftableId,
+              displayName,
+              stat: statCategory.name,
+              overProbability: unabatedProbabilities[targetValue],
+              ...etrData,
+            }
+          }).filter(v => v !== null);
+
+          console.log({ analyzedPicks });
+
+          debugger;
+        }
+
+        const CATEGORY_MAP = {
+          'Passing Yards': {},
+          'Completions': {},
+          // 'Attempts': {}, not currently supported by unabated
+          'Rushing Yards': {},
+          'Receiving Yards': {},
+          'Receptions': {},
+        };
+
+        function parseCountProbabilities(countsObject, key) {
+          if (!countsObject) {
+            // 12/21/24 NOTE: THIS COULD BE CAUSING AN ISSUE IF COUNTS OBJECT IS BLANK
+            return {};
+          }
+          return countsObject.reduce((acc, obj) => {
+            const total = obj[key];
+            if (total && total.toString().endsWith('.5')) {
+              acc[total] = obj.probabilityOver;
+            }
+            return acc;
+          }, {});
+        }
+
+        function parseUnabatedResponses(unabatedReponses) {
+          const flattenedResponses = unabatedReponses.flat().filter(v => v !== null)
+          return flattenedResponses.reduce((acc, { player, unabatedResponse }) => {
+            console.log({ player, unabatedResponse });
+            const position = player.Position;
+            switch (position) {
+              case 'QB':
+                acc['Passing Yards'][player.Player] = parseCountProbabilities(unabatedResponse.yardsProbabilities, 'totalYards');
+                acc['Completions'][player.Player] = parseCountProbabilities(unabatedResponse.countProbabilities, 'total');
+                break;
+              case 'RB':
+                acc['Rushing Yards'][player.Player] = parseCountProbabilities(unabatedResponse.yardsProbabilities, 'totalYards');;
+                // TODO: NEED TO ADD RECEIVING YARDS TO SCRIPT
+                // acc['Receiving Yards'][player.Player] = unabatedResponse;
+                // acc['Receptions'][player.Player] = unabatedResponse;
+                break;
+              case 'WR':
+              case 'TE':
+                acc['Receiving Yards'][player.Player] = parseCountProbabilities(unabatedResponse.yardsProbabilities, 'totalYards');
+                acc['Receptions'][player.Player] = parseCountProbabilities(unabatedResponse.countProbabilities, 'total');
+                break;
+            }
+            return acc;
+          }, CATEGORY_MAP);
+        }
+
+        const unabatedResponses = result[0].result;
+        const unabatedByPlayer = parseUnabatedResponses(unabatedResponses);
+        console.log({ unabatedByPlayer });
+
+        // TODO: THIS IS IN GOOD SHAPE; NEED TO ADD BACK IN THE PICKABLE LINES
+
+        // const pickableLines = parseRemixContext();
+        // const merged = mergePickableLinesWithUnabatedData(pickableLines, unabatedByPlayer);
+      }
+    }
+  } catch (error) {
+    console.error('Error simulating Unabated NFL:', error);
+  }
+}
+
+async function simulateUnabatedNba() {
   try {
     // Query for any tabs on unabated.com
     const tabs = await browser.tabs.query({
@@ -1243,6 +1616,7 @@ async function simulateOnUnabated() {
                   return etrProjections['Rebounds'] + etrProjections['Assists'];
                 },
               };
+
               window.analyzedPicks = Object.keys(merged).reduce((acc, cv) => {
                 const { dkLines, etrProjections } = merged[cv];
                 const dkLinesPostedForPlayer = Object.keys(dkLines).reduce((acc, statCategory) => {
@@ -1357,7 +1731,7 @@ void registerPick6Listener();
 //   void updateEtrProjections();
 // }, 1000 * 60);
 
-const dkIntervalId = setInterval(refreshPick6Slates, 1000 * 10);
+const dkIntervalId = setInterval(refreshPick6Slates, 1000 * 60);
 
 // const unabatedIntervalId = setInterval(() => {
 //   void simulateOnUnabated();
@@ -1414,6 +1788,7 @@ browser.runtime.onMessage.addListener((message, sender) => {
 });
 
 browser.runtime.onMessage.addListener(async (message: { type: string; url?: string }) => {
+  console.log({ messageType: message.type });
   switch (message.type) {
     case 'RUN_COMPARATOR':
       void comparator();
@@ -1458,23 +1833,21 @@ browser.runtime.onMessage.addListener(async (message: { type: string; url?: stri
       break;
     case 'SCRAPE_ETR_THURSDAY':
       console.log("Scraping ETR Thursday projections...");
-      // TODO: NEED TO IMPLEMENT; WRITE A GENERIC FUNCTION THAT TAKES IN THE URL; TABLE STRUCTURE SHOULD BE THE SAME
-      // --> download HTML and provide to cursor
-      void scrapeEtrThursday();
+      void scrapeEtrNfl('*://*.establishtherun.com/*thursday*');
       break;
 
     case 'SCRAPE_ETR_SUNDAY':
       console.log("Scraping ETR Sunday projections...");
-      // TODO: NEED TO IMPLEMENT; WRITE A GENERIC FUNCTION THAT TAKES IN THE URL; TABLE STRUCTURE SHOULD BE THE SAME
-      // --> download HTML and provide to cursor
-      void scrapeETRSunday();
+      void scrapeEtrNfl('*://*.establishtherun.com/*full-projections-detail*');
       break;
 
     case 'SCRAPE_ETR_MONDAY':
       console.log("Scraping ETR Monday projections...");
-      // TODO: NEED TO IMPLEMENT; WRITE A GENERIC FUNCTION THAT TAKES IN THE URL; TABLE STRUCTURE SHOULD BE THE SAME
-      // --> download HTML and provide to cursor
       void scrapeETRMonday();
+      break;
+
+    case 'SIMULATE_UNABATED_NFL':
+      void simulateUnabatedNfl();
       break;
   }
 });
