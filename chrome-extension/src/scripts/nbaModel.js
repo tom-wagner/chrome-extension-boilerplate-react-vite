@@ -254,8 +254,35 @@ function getMisses(makesAndMisses) {
     return makesAndMisses.TWO_PT_MISSES + makesAndMisses.THREE_PT_MISSES + (makesAndMisses.FT_MISSES * .44);
 }
 
+function getTeamTotals(total, spread) {
+    const homeAdj = -spread / 2;
+    const awayAdj = spread / 2;
+    return [(total / 2) + homeAdj, (total / 2) + awayAdj];
+}
+
+function adjustPointsProjections(args) {
+    const { homePoints, awayPoints, homePointsByPlayer, awayPointsByPlayer, projectedHomePoints, projectedAwayPoints } = args;
+
+    // Calculate adjustment ratios for each team
+    const homeAdjustmentRatio = projectedHomePoints / homePoints;
+    const awayAdjustmentRatio = projectedAwayPoints / awayPoints;
+
+    // Adjust individual player points by team ratios using map/reduce
+    const adjustedHomePointsByPlayer = Object.fromEntries(
+        Object.entries(homePointsByPlayer)
+            .map(([player, points]) => [player, points * homeAdjustmentRatio])
+    );
+
+    const adjustedAwayPointsByPlayer = Object.fromEntries(
+        Object.entries(awayPointsByPlayer)
+            .map(([player, points]) => [player, points * awayAdjustmentRatio])
+    );
+
+    return [adjustedHomePointsByPlayer, adjustedAwayPointsByPlayer];
+}
+
 function simulateSingleGame(game, minutesByTeam) {
-    const { home, away, total } = game;
+    const { home, away, total, spread } = game;
     const [homePossessionsByPlayer, awayPossessionsByPlayer] = getPossessionProjectionsByTeam(game, minutesByTeam);
 
     const [homeShotDistributionByPlayer, awayShotDistributionByPlayer] = [
@@ -268,11 +295,22 @@ function simulateSingleGame(game, minutesByTeam) {
         [awayShotDistributionByPlayer, home]
     ].map(([shotDistributionByPlayer, opponent]) => getMakesAndMisses(shotDistributionByPlayer, opponent));
 
+    const [homePointsByPlayer, awayPointsByPlayer] = [homeMakesAndMisses, awayMakesAndMisses].map(
+        makesAndMisses => Object.entries(makesAndMisses).reduce((acc, [key, value]) => {
+            acc[key] = getPointsForPlayer(value);
+            return acc;
+        }, {})
+    );
+
     const homePoints = Object.values(homeMakesAndMisses).reduce((sum, makesAndMisses) => sum + getPointsForPlayer(makesAndMisses), 0);
     const awayPoints = Object.values(awayMakesAndMisses).reduce((sum, makesAndMisses) => sum + getPointsForPlayer(makesAndMisses), 0);
 
-    // TODO: CONSIDER ADJUSTING EVERYTHING UP AND DOWN BASED ON THE TOTAL --> BUT THIS SHOULD BE DECENT
-    // --> IF IT IS NOT --> SOMETHING WRONG WITH ALGO
+    const [projectedHomePoints, projectedAwayPoints] = getTeamTotals(total, spread);
+    const [adjustedHomePointsByPlayer, adjustedAwayPointsByPlayer] = adjustPointsProjections({
+        homePoints, awayPoints, homePointsByPlayer, awayPointsByPlayer, projectedHomePoints, projectedAwayPoints
+    });
+
+    // TODO: CONTINUE HERE WITH REBOUNDS AND ASSISTS AND MORE
 
     return {
         home: homePoints,

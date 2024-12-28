@@ -673,19 +673,31 @@ const fetchNBAStats = async url => {
   }
 };
 
+async function openNbaCom() {
+  const tabs = await browser.tabs.query({
+    url: '*://*.nba.com/*'
+  });
+  for (const tab of tabs) {
+    if (tab.id) {
+      await browser.tabs.update(tab.id, { active: true });
+    }
+  }
+}
+
 // Tab needs to be open:
 // https://www.nba.com/stats/players/traditional?PerMode=Totals&sort=PTS&dir=-1
 async function scraperNBA() {
+  // STATUS: MATCHES
   console.log('Scraping NBA stats...');
   const opponentStatsByTeam = await fetchNBAStats(
     `https://stats.nba.com/stats/leaguedashteamstats?Conference=&DateFrom=&DateTo=&Division=&GameScope=&GameSegment=&Height=&ISTRound=&LastNGames=0&LeagueID=00&Location=&MeasureType=Opponent&Month=0&OpponentTeamID=0&Outcome=&PORound=0&PaceAdjust=N&PerMode=Per100Possessions&Period=0&PlayerExperience=&PlayerPosition=&PlusMinus=N&Rank=N&Season=2024-25&SeasonSegment=&SeasonType=Regular%20Season&ShotClockRange=&StarterBench=&TeamID=0&TwoWay=0&VsConference=&VsDivision=`,
   );
   console.log({ opponentStatsByTeam });
 
-  const playerStats = await fetchNBAStats(
+  const playerAdvancedStats = await fetchNBAStats(
     `https://stats.nba.com/stats/leaguedashplayerstats?College=&Conference=&Country=&DateFrom=&DateTo=&Division=&DraftPick=&DraftYear=&GameScope=&GameSegment=&Height=&ISTRound=&LastNGames=0&LeagueID=00&Location=&MeasureType=Advanced&Month=0&OpponentTeamID=0&Outcome=&PORound=0&PaceAdjust=N&PerMode=Per100Possessions&Period=0&PlayerExperience=&PlayerPosition=&PlusMinus=N&Rank=N&Season=2024-25&SeasonSegment=&SeasonType=Regular%20Season&ShotClockRange=&StarterBench=&TeamID=0&VsConference=&VsDivision=&Weight=`,
   );
-  console.log({ playerStats });
+  console.log({ playerAdvancedStats });
 
 
   const advancedByTeam = await fetchNBAStats(
@@ -702,6 +714,20 @@ async function scraperNBA() {
     `https://stats.nba.com/stats/leaguedashplayerstats?College=&Conference=&Country=&DateFrom=&DateTo=&Division=&DraftPick=&DraftYear=&GameScope=&GameSegment=&Height=&ISTRound=&LastNGames=0&LeagueID=00&Location=&MeasureType=Base&Month=0&OpponentTeamID=0&Outcome=&PORound=0&PaceAdjust=N&PerMode=Per100Possessions&Period=0&PlayerExperience=&PlayerPosition=&PlusMinus=N&Rank=N&Season=2024-25&SeasonSegment=&SeasonType=Regular%20Season&ShotClockRange=&StarterBench=&TeamID=0&VsConference=&VsDivision=&Weight=`
   );
   console.log({ playerTraditionalPer100 });
+
+  const nbaStatsObj = {
+    opponentStatsByTeam,
+    playerAdvancedStats,
+    advancedByTeam,
+    scoringDistribution,
+    playerTraditional: playerTraditionalPer100,
+  }
+
+  const existingStorage = await browser.storage.local.get();
+  await browser.storage.local.set({
+    ...existingStorage,
+    nbaStats: nbaStatsObj
+  });
 }
 
 async function getLiveStats() {
@@ -1703,6 +1729,73 @@ async function simulateUnabatedNba() {
   }
 }
 
+async function scrapeEtrNba() {
+  try {
+    const tabs = await browser.tabs.query({
+      url: 'https://establishtherun.com/draftkings-nba-projections/',
+    });
+
+    for (const tab of tabs) {
+      if (tab.id) {
+        // await browser.tabs.reload(tab.id);
+
+        // Wait a moment for the page to load
+        // await new Promise(resolve => setTimeout(resolve, 3000));
+
+        const result = await browser.scripting.executeScript({
+          target: { tabId: tab.id },
+          func: async () => {
+            console.log('Executing script on ETR NBA...');
+
+            const table = document.querySelector('table.dataTable');
+            console.log({ table });
+
+            if (!table) {
+              console.error('No projections table found on page');
+              return null;
+            }
+
+            function parseTable(tableElement) {
+              console.log('Parsing table...');
+              const players = [];
+
+              // Get all rows from tbody
+              const rows = tableElement.getElementsByTagName('tbody')[0]?.getElementsByTagName('tr');
+              if (!rows) return players;
+
+              for (const row of rows) {
+                const cells = row.getElementsByTagName('td');
+                if (cells.length < 3) continue; // Skip invalid rows
+
+                // Extract data from cells based on the table structure
+                const player = {
+                  "Player": cells[0].textContent?.trim() || '',
+                  "Team": cells[1].textContent?.trim() || '',
+                  "Opponent": cells[2].textContent?.trim() || '',
+                  "Minutes": parseFloat(cells[3].textContent?.trim() || '0'),
+                  "Position": cells[4].textContent?.trim() || '',
+                };
+
+                players.push(player);
+              }
+
+              return players;
+            }
+
+            const players = parseTable(table);
+            console.log({ players });
+            return players;
+          },
+        })
+
+        console.log({ result });
+      }
+    }
+  } catch (error) {
+    console.error('Error executing script on ETR NBA:', error);
+  }
+}
+
 //void updateBackgroundStorage();
 
 // void updateEtrProjections();
@@ -1823,6 +1916,11 @@ browser.runtime.onMessage.addListener(async (message: { type: string; url?: stri
       void scraperNBA();
       break;
 
+    case 'SCRAPE_ETR_NBA':
+      console.log("Scraping ETR NBA...");
+      void scrapeEtrNba();
+      break;
+
     case 'OPEN_TAB':
       if (message.url) {
         await browser.tabs.create({
@@ -1833,7 +1931,7 @@ browser.runtime.onMessage.addListener(async (message: { type: string; url?: stri
       break;
     case 'SCRAPE_ETR_THURSDAY':
       console.log("Scraping ETR Thursday projections...");
-      void scrapeEtrNfl('*://*.establishtherun.com/*thursday*');
+      void scrapeEtrNfl('*://*.establishtherun.com/*ravens-at-texans*');
       break;
 
     case 'SCRAPE_ETR_SUNDAY':

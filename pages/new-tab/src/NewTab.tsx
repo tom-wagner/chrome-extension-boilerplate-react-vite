@@ -141,13 +141,15 @@ const NbaTools: React.FC = () => {
 
         <button
           onClick={() => {
-            void chrome.runtime.sendMessage({ type: 'SCRAPE_ETR' });
+            void chrome.runtime.sendMessage({ type: 'SCRAPE_ETR_NBA' });
           }}
           className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded"
         >
           Scrape ETR
         </button>
       </div>
+
+      TODO: CONTINUE ON PLAYER PROP MODEL; NEED TO DUMP ETR DATA INTO LOCAL STORAGE AND MAKE SURE FORMAT MATCHES nbaModel.ts
     </div>
   );
 };

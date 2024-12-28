@@ -102624,5 +102624,5 @@ export const ETR_MINUTES_PROJECTIONS = {
 };
 
 export const GAMES_AND_TOTALS = [
-    { home: 'MIN', away: 'POR', total: 210 },
+    { home: 'MIN', away: 'POR', total: 210, spread: -5 },
 ];
