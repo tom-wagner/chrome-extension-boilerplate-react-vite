@@ -312,6 +312,44 @@ function simulateSingleGame(game, minutesByTeam) {
 
     // TODO: CONTINUE HERE WITH REBOUNDS AND ASSISTS AND MORE
 
+    /*
+    Rebounds:
+    1. Get missed shots from above by team
+    2. Get Off Rebound Rate and Def Rebound Rate by player from playerAdvancedStats in MOCK_DATA.js
+    3. Blend OREB_PCT (80% weight) for each player with opponent DREB_PCT (20% weight) (advancedByTeam in mock data)
+    4. Blend DREB_PCT (80% weight) for each player with opponent OREB_PCT (20% weight) (advancedByTeam in mock data)
+    5. Calculate # of rebounds for each player by multiplying:
+     >> (total missed shots by opponent * (minutes played / 48)) by blended DREB_RATE
+     >> (total missed shots by team * (minutes played / 48)) * blended OREB_RATE
+    6. Write a place holder function called normalizeRebounds; we need to adjust our makes/misses similar to how I adjusted points using the game total (see adjustPointsProjections function)
+    */
+
+    /*
+    Assists:
+    1. Get FG makes from above homeMakesAndMisses + awayMakesAndMisses
+    2. Calculate league average opponent assist ratio:
+    >> calculate opponent assist ratio as OPP_AST / OPP_FGM from opponentStatsByTeam
+    >> average these values
+    3. Calculate an adjustment factor for the opponent as: (OPP_AST / OPP_FGM) / average league oppoonent assist ratio
+    4. Calculate each players adjusted AST_RATIO as: playerAdvancedStats.AST_RATIO * adjustment factor
+    5. Determine # of FGM each player will be on the floor for as: teamMakesAndMisses.FGM * (player projected minutes / 48)
+    6. Multiply #5 * player adjusted assist ratio from #4
+    7. Write a place holder function called normalizeAssists; we need to adjust our makes/misses similar to how I adjusted points using the game total (see adjustPointsProjections function)
+    */
+
+    /* 3PM ---> YOU CAN TAKE FIRST STAB AT THIS ONE! */
+
+    /* TURNOVERS ---> YOU CAN TAKE FIRST STAB AT THIS ONE! */
+
+    /* Points + Rebounds -> obvious */
+    /* Points + Assists -> obvious */
+    /* Points + Rebounds + Assists -> obvious */
+    /* Assists + Rebounds -> obvious */
+
+    // Write some javascript to add all player projections NewTab.tsx
+    // >> Add a button to NewTab.tsx called "NBA Model" (similar to PICK 6 TOOLS button)
+    // >> iterate over projections and put on the page as a table
+
     return {
         home: homePoints,
         away: awayPoints,
