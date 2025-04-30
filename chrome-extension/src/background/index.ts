@@ -4,7 +4,8 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 import browser from 'webextension-polyfill';
 import { backgroundStorage } from '@extension/storage';
-
+import { scrapeAllCategoriesNBA } from './NBA';
+import { scrapeAllCategoriesNFL } from './NFL';
 function determineResult(targetValue, abbreviation, boxScore) {
   const OVER = 'OVER';
   const UNDER = 'UNDER';
@@ -68204,8 +68205,67 @@ async function comparator() {
 //   const currentData = await backgroundStorage.get();
 //   console.log({ currentData });
 // }
+const fetchNBAStats = async url => {
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        Accept: '*/*',
+        'Accept-Encoding': 'gzip, deflate, br, zstd',
+        'Accept-Language': 'en,vi;q=0.9,en-US;q=0.8',
+        Origin: 'https://www.nba.com',
+        Referer: 'https://www.nba.com/',
+        'Sec-CH-UA': `"Chromium";v="130", "Google Chrome";v="130", "Not?A_Brand";v="99"`,
+        'Sec-CH-UA-Mobile': '?0',
+        'Sec-CH-UA-Platform': `"Windows"`,
+        'Sec-Fetch-Dest': 'empty',
+        'Sec-Fetch-Mode': 'cors',
+        'Sec-Fetch-Site': 'same-site',
+        'User-Agent':
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! Status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const headers = data['resultSets'][0]['headers'];
+    const rowSet = data['resultSets'][0]['rowSet'];
+    const jsonData = {};
+
+    for (const teamData of rowSet) {
+      const teamName = teamData[1];
+      jsonData[teamName] = Object.fromEntries(headers.map((key, index) => [key, teamData[index]]));
+    }
+    console.log(jsonData);
+  } catch (error) {
+    console.error('Error fetching data:', error);
+  }
+};
+async function scraperNBA() {
+  // Teams Opponent
+  fetchNBAStats(
+    `https://stats.nba.com/stats/leaguedashteamstats?Conference=&DateFrom=&DateTo=&Division=&GameScope=&GameSegment=&Height=&ISTRound=&LastNGames=0&LeagueID=00&Location=&MeasureType=Opponent&Month=0&OpponentTeamID=0&Outcome=&PORound=0&PaceAdjust=N&PerMode=Per100Possessions&Period=0&PlayerExperience=&PlayerPosition=&PlusMinus=N&Rank=N&Season=2024-25&SeasonSegment=&SeasonType=Regular%20Season&ShotClockRange=&StarterBench=&TeamID=0&TwoWay=0&VsConference=&VsDivision=`,
+  );
+  //Players Advanced
+  fetchNBAStats(
+    `https://stats.nba.com/stats/leaguedashplayerstats?College=&Conference=&Country=&DateFrom=&DateTo=&Division=&DraftPick=&DraftYear=&GameScope=&GameSegment=&Height=&ISTRound=&LastNGames=0&LeagueID=00&Location=&MeasureType=Advanced&Month=0&OpponentTeamID=0&Outcome=&PORound=0&PaceAdjust=N&PerMode=Per100Possessions&Period=0&PlayerExperience=&PlayerPosition=&PlusMinus=N&Rank=N&Season=2024-25&SeasonSegment=&SeasonType=Regular%20Season&ShotClockRange=&StarterBench=&TeamID=0&VsConference=&VsDivision=&Weight=`,
+  );
+  // Teams Advanced
+  fetchNBAStats(
+    `https://stats.nba.com/stats/leaguedashteamstats?Conference=&DateFrom=&DateTo=&Division=&GameScope=&GameSegment=&Height=&ISTRound=&LastNGames=0&LeagueID=00&Location=&MeasureType=Advanced&Month=0&OpponentTeamID=0&Outcome=&PORound=0&PaceAdjust=N&PerMode=PerGame&Period=0&PlayerExperience=&PlayerPosition=&PlusMinus=N&Rank=N&Season=2024-25&SeasonSegment=&SeasonType=Regular%20Season&ShotClockRange=&StarterBench=&TeamID=0&TwoWay=0&VsConference=&VsDivision=`,
+  );
+  //Players Usage
+  fetchNBAStats(
+    `https://stats.nba.com/stats/leaguedashplayerstats?College=&Conference=&Country=&DateFrom=&DateTo=&Division=&DraftPick=&DraftYear=&GameScope=&GameSegment=&Height=&ISTRound=&LastNGames=0&LeagueID=00&Location=&MeasureType=Usage&Month=0&OpponentTeamID=0&Outcome=&PORound=0&PaceAdjust=N&PerMode=PerGame&Period=0&PlayerExperience=&PlayerPosition=&PlusMinus=N&Rank=N&Season=2024-25&SeasonSegment=&SeasonType=Regular%20Season&ShotClockRange=&StarterBench=&TeamID=0&VsConference=&VsDivision=&Weight=`,
+  );
+}
 
 async function getLiveStats() {
+  scrapeAllCategoriesNBA();
+  scrapeAllCategoriesNFL();
   const tabs = await browser.tabs.query({
     url: '*://*.rapidapi.com/*',
   });
@@ -68338,6 +68398,183 @@ async function getLiveStats() {
         });
         console.log('Player stats saved:', stats);
       }
+    }
+  }
+}
+
+async function getSportbookAG() {
+  const tabs = await browser.tabs.query({
+    url: 'file:///C:/chrome-extension-boilerplate-react-vite/chrome-extension/src/HTML/SportsbookAgResponse.html',
+  });
+  for (const tab of tabs) {
+    if (tab.id) {
+      const result = await browser.scripting.executeScript({
+        target: { tabId: tab.id },
+        func: async () => {
+          setInterval(() => {
+            const statsObject = {};
+
+            const extractPlayerStats = (eventBoxes, statType) => {
+              eventBoxes.forEach(eventBox => {
+                const playerName = eventBox.querySelector('.eventheading div')?.innerText.split(' - ')[0].trim();
+
+                if (playerName) {
+                  if (!statsObject[playerName]) {
+                    statsObject[playerName] = {};
+                  }
+
+                  const statRows = eventBox.querySelectorAll('.eventrow .row');
+                  let foundStat = false;
+
+                  statRows.forEach(row => {
+                    const marketDiv = row.querySelector('.market');
+
+                    if (marketDiv) {
+                      let [statValue, odds] = marketDiv.innerText.split('\n').map(item => item.trim());
+                      let statName = '';
+
+                      if (statValue.includes('O')) statName = 'OVER';
+                      if (statValue.includes('U')) statName = 'UNDER';
+
+                      const OU = statValue.replace('O', '').replace('U', '');
+
+                      if (!statsObject[playerName][statType]) {
+                        statsObject[playerName][statType] = {};
+                      }
+
+                      statsObject[playerName][statType] = {
+                        ...statsObject[playerName][statType],
+                        [statName]: odds.replace('(', '').replace(')', ''),
+                        '0U': OU,
+                      };
+
+                      foundStat = true;
+                    }
+                  });
+
+                  if (!foundStat) {
+                    statsObject[playerName][statType] = {
+                      'O/U': 'N/A',
+                      OVER: 'N/A',
+                      UNDER: 'N/A',
+                    };
+                  }
+                }
+              });
+            };
+
+            const pointEventBoxes = document.querySelector('.panel-body').querySelectorAll('.eventbox');
+            const reboundEventBoxes = document.querySelectorAll('.panel-body')[2].querySelectorAll('.eventbox');
+
+            extractPlayerStats(pointEventBoxes, 'Points');
+            extractPlayerStats(reboundEventBoxes, 'Rebounds');
+            localStorage.setItem(data, statsObject);
+            return statsObject;
+          }, 60000);
+        },
+      });
+
+      console.log(result);
+    }
+  }
+}
+
+async function getFullDFS() {
+  const tabs = await browser.tabs.query({
+    url: 'file:///C:/chrome-extension-boilerplate-react-vite/chrome-extension/src/HTML/establishTheRunDfsProjections.html',
+  });
+  for (const tab of tabs) {
+    if (tab.id) {
+      const result = await browser.scripting.executeScript({
+        target: { tabId: tab.id },
+        func: async () => {
+          const table = document.getElementById('table_1');
+
+          const players = {};
+
+          Array.from(table.querySelectorAll('tbody tr')).forEach(row => {
+            const cells = row.querySelectorAll('td');
+
+            const playerName = cells[0].textContent.trim();
+            const fdName = cells[1].textContent.trim();
+            const team = cells[2].textContent.trim();
+            const opponent = cells[3].textContent.trim();
+            const minutes = parseFloat(cells[4].textContent);
+            const position = cells[5].textContent.trim();
+            const salary = parseInt(cells[6].textContent.replace(/,/g, ''));
+            const points = parseFloat(cells[7].textContent);
+            const value = parseFloat(cells[8].textContent);
+            const ceiling = parseFloat(cells[9].textContent);
+            const ownership = parseFloat(cells[10].textContent);
+            const slate = cells[11].textContent.trim();
+
+            players[playerName] = {
+              fdName,
+              team,
+              opponent,
+              minutes,
+              position,
+              salary,
+              points,
+              value,
+              ceiling,
+              ownership,
+              slate,
+            };
+          });
+
+          console.log(players);
+          return players;
+        },
+      });
+
+      console.log(result);
+    }
+  }
+}
+
+async function getFullDetail() {
+  const tabs = await browser.tabs.query({
+    url: 'file:///C:/chrome-extension-boilerplate-react-vite/chrome-extension/src/HTML/establishTheRunFullProjectionDetail.html',
+  });
+  for (const tab of tabs) {
+    if (tab.id) {
+      const result = await browser.scripting.executeScript({
+        target: { tabId: tab.id },
+        func: async () => {
+          const table = document.getElementById('footable_743261');
+
+          const players = {};
+
+          Array.from(table.querySelectorAll('tbody tr')).forEach(row => {
+            const cells = row.querySelectorAll('td');
+
+            const playerName = cells[0].textContent.trim(); // Player name
+            // const position = cells[1].textContent.trim();          // Position
+            const team = cells[2].textContent.trim(); // Team
+            const oop = cells[3].textContent.trim(); // Opponent
+            const minutes = parseFloat(cells[4].textContent); // Minutes
+            // const points = parseFloat(cells[5].textContent);       // Points
+            // const assists = parseFloat(cells[6].textContent);      // Assists
+            // const rebounds = parseFloat(cells[7].textContent);     // Rebounds
+            // const threePt = parseFloat(cells[8].textContent);      // ThreePt
+            // const turnovers = parseFloat(cells[9].textContent);    // Turnovers
+            // const steals = parseFloat(cells[10].textContent);      // Steals
+            // const blocks = parseFloat(cells[11].textContent);      // Blocks
+
+            players[playerName] = {
+              team,
+              oop,
+              minutes,
+            };
+          });
+
+          console.log(players);
+          return players;
+        },
+      });
+
+      console.log(result);
     }
   }
 }
@@ -68667,7 +68904,15 @@ void simulateOnUnabated();
 
 void getLiveStats();
 
+void scraperNBA();
+
 void comparator();
+
+void getFullDetail();
+
+void getFullDFS();
+
+void getSportbookAG();
 
 const intervalId = setInterval(() => {
   void updateBackgroundStorage();
@@ -68725,11 +68970,33 @@ browser.runtime.onMessage.addListener(async (message: { type: string }) => {
     void comparator();
   }
 });
-
 browser.runtime.onMessage.addListener(async (message: { type: string }) => {
   if (message.type === 'GET_LIVE_STATS') {
     void getLiveStats();
   }
 });
 
+browser.runtime.onMessage.addListener(async (message: { type: string }) => {
+  if (message.type === 'GET_FULL_DETAIL') {
+    void getFullDetail();
+  }
+});
+
+browser.runtime.onMessage.addListener(async (message: { type: string }) => {
+  if (message.type === 'GET_FULL_DFS') {
+    void getFullDFS();
+  }
+});
+
+browser.runtime.onMessage.addListener(async (message: { type: string }) => {
+  if (message.type === 'GET_SPORTSBOOKAG') {
+    void getSportbookAG();
+  }
+});
+
+browser.runtime.onMessage.addListener(async (message: { type: string }) => {
+  if (message.type === 'SCRAPER_NBA_COM') {
+    void scraperNBA();
+  }
+});
 console.log('background loaded');
